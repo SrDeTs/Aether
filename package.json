@@ -15,6 +15,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@jridgewell/trace-mapping": "^0.3.31",
     "@oslojs/crypto": "^1.0.1",
+    "@paper-design/shaders-react": "^0.0.77",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
