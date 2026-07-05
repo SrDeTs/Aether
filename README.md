@@ -77,8 +77,8 @@ Certifique-se de ter instalado em sua máquina:
 
 1.  **Clonar o repositório:**
     ```bash
-    git clone <url-do-repositorio>
-    cd jellymusic
+    git clone <https://github.com/SrDeTs/jellyfin-glass-player>
+    cd jellyfin-glass-player
     ```
 
 2.  **Instalar as dependências:**
