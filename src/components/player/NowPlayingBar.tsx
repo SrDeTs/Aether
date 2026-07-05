@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import {
   Play,
   Pause,
@@ -9,7 +8,6 @@ import {
   VolumeX,
   ListMusic,
   Disc3,
-  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlayer, formatTime } from "@/hooks/use-player";
@@ -32,18 +30,16 @@ export function NowPlayingBar() {
     seek,
     setVolume,
     toggleMute,
-    queue,
   } = usePlayer();
 
   const [showQueue, setShowQueue] = useState(false);
-  const [showVolume, setShowVolume] = useState(false);
 
   if (!currentTrack) {
     return (
       <div className="h-20 glass border-t border-white/[0.04] flex items-center px-4">
         <div className="flex items-center gap-3 text-muted-foreground/50">
           <Disc3 className="w-5 h-5" />
-          <span className="text-sm">No track selected</span>
+          <span className="text-sm">Nenhuma música selecionada</span>
         </div>
       </div>
     );
@@ -54,7 +50,6 @@ export function NowPlayingBar() {
 
   return (
     <div className="h-20 glass border-t border-white/[0.04] flex items-center px-4 relative z-50">
-      {/* Track info - left */}
       <div className="flex items-center gap-3 w-72 min-w-0">
         <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
           {imageUrl ? (
@@ -75,7 +70,6 @@ export function NowPlayingBar() {
         </div>
       </div>
 
-      {/* Player controls - center */}
       <div className="flex-1 flex flex-col items-center gap-1 max-w-xl mx-auto">
         <div className="flex items-center gap-3">
           <button
@@ -112,7 +106,6 @@ export function NowPlayingBar() {
           </button>
         </div>
 
-        {/* Progress bar */}
         <div className="w-full flex items-center gap-2">
           <span className="text-[10px] text-muted-foreground/60 tabular-nums w-8 text-right">
             {formatTime(currentTime)}
@@ -133,7 +126,6 @@ export function NowPlayingBar() {
                 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full
                 [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0"
             />
-            {/* Progress fill */}
             <div
               className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-primary/80 to-primary rounded-full pointer-events-none"
               style={{ width: `${Math.min(progress, 100)}%` }}
@@ -145,7 +137,6 @@ export function NowPlayingBar() {
         </div>
       </div>
 
-      {/* Volume & Queue - right */}
       <div className="flex items-center gap-2 w-36 justify-end">
         <button
           onClick={() => setShowQueue(!showQueue)}
@@ -153,7 +144,7 @@ export function NowPlayingBar() {
             "p-2 rounded-lg transition-colors",
             showQueue ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
           )}
-          title="Queue"
+          title="Fila"
         >
           <ListMusic className="w-4 h-4" />
         </button>

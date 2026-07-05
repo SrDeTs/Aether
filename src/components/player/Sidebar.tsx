@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import {
   Library,
@@ -27,27 +28,25 @@ interface SidebarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onAlbumClick: (albumId: string) => void;
-  onOpenSettings: () => void;
 }
 
 const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
-  { id: "albums", label: "Albums", icon: <Disc3 className="w-4 h-4" /> },
-  { id: "artists", label: "Artists", icon: <Mic2 className="w-4 h-4" /> },
-  { id: "tracks", label: "Songs", icon: <Music className="w-4 h-4" /> },
-  { id: "recent", label: "Recent", icon: <Clock className="w-4 h-4" /> },
+  { id: "albums", label: "Álbuns", icon: <Disc3 className="w-4 h-4" /> },
+  { id: "artists", label: "Artistas", icon: <Mic2 className="w-4 h-4" /> },
+  { id: "tracks", label: "Músicas", icon: <Music className="w-4 h-4" /> },
+  { id: "recent", label: "Recentes", icon: <Clock className="w-4 h-4" /> },
 ];
 
-export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange, onOpenSettings }: SidebarProps) {
-  const { musicLibraries, selectedLibrary, selectLibrary, userName, disconnect, getImageUrl } = useJellyfin();
+export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange }: SidebarProps) {
+  const navigate = useNavigate();
+  const { musicLibraries, selectedLibrary, selectLibrary, userName, disconnect } = useJellyfin();
   const [collapsed, setCollapsed] = useState(false);
 
   const userInitial = userName?.charAt(0)?.toUpperCase() || "J";
 
-  // Run inside effect instead of render for the navigate redirect
   const handleDisconnect = () => {
     disconnect();
   };
-
 
   return (
     <motion.aside
@@ -55,7 +54,6 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange,
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="h-full flex flex-col glass border-r border-white/[0.04] shrink-0 overflow-hidden"
     >
-      {/* Header */}
       <div className={cn(
         "flex items-center gap-3 px-4 h-16 border-b border-white/[0.04]",
         collapsed && "justify-center px-2"
@@ -81,11 +79,10 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange,
 
       <ScrollArea className="flex-1">
         <div className={cn("p-3 space-y-1", collapsed && "px-2")}>
-          {/* Library selector */}
           {!collapsed && musicLibraries.length > 0 && (
             <div className="mb-3">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-2 mb-2">
-                Library
+                Biblioteca
               </p>
               <div className="space-y-0.5">
                 {musicLibraries.map((lib) => (
@@ -108,10 +105,9 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange,
             </div>
           )}
 
-          {/* Navigation */}
           {!collapsed && (
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-2 mb-2">
-              Browse
+              Navegar
             </p>
           )}
           {navItems.map((item) => (
@@ -132,26 +128,24 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange,
             </button>
           ))}
 
-          {/* Search */}
           {!collapsed && (
             <>
               <Separator className="my-3 bg-white/[0.04]" />
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-2 mb-2">
-                Search
+                Buscar
               </p>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  placeholder="Search music..."
+                  placeholder="Buscar música..."
                   className="pl-8 h-8 text-xs bg-white/[0.04] border-white/[0.06] rounded-lg"
                 />
               </div>
             </>
           )}
 
-          {/* Settings */}
           {!collapsed && (
             <>
               <Separator className="my-3 bg-white/[0.04]" />
@@ -159,7 +153,7 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange,
                 App
               </p>
               <button
-                onClick={onOpenSettings}
+                onClick={() => navigate("/settings")}
                 className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-white/[0.04] border border-transparent"
               >
                 <Settings2 className="w-3.5 h-3.5 shrink-0" />
@@ -170,15 +164,8 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange,
         </div>
       </ScrollArea>
 
-      {/* User footer */}
-      <div className={cn(
-        "border-t border-white/[0.04] p-3",
-        collapsed && "px-2"
-      )}>
-        <div className={cn(
-          "flex items-center gap-2.5",
-          collapsed && "justify-center"
-        )}>
+      <div className={cn("border-t border-white/[0.04] p-3", collapsed && "px-2")}>
+        <div className={cn("flex items-center gap-2.5", collapsed && "justify-center")}>
           <Avatar className="w-7 h-7 shrink-0">
             <AvatarFallback className="text-[10px] bg-gradient-to-br from-purple-500/30 to-indigo-500/30 text-primary text-xs">
               {userInitial}
@@ -188,12 +175,12 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange,
             <>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate">{userName}</p>
-                <p className="text-[10px] text-muted-foreground/60 truncate">Connected</p>
+                <p className="text-[10px] text-muted-foreground/60 truncate">Conectado</p>
               </div>
               <button
                 onClick={handleDisconnect}
                 className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors text-muted-foreground hover:text-destructive"
-                title="Disconnect"
+                title="Desconectar"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>

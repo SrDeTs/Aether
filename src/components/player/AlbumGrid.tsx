@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Disc3, Music } from "lucide-react";
 import { useJellyfin } from "@/hooks/use-jellyfin";
@@ -13,7 +12,7 @@ interface AlbumGridProps {
 
 function AlbumCard({ album, onClick, imageUrl }: { album: JellyfinItem; onClick: () => void; imageUrl: string }) {
   const year = album.ProductionYear;
-  const artist = album.AlbumArtist || album.AlbumArtists?.[0]?.Name || "Unknown Artist";
+  const artist = album.AlbumArtist || album.AlbumArtists?.[0]?.Name || "Artista Desconhecido";
 
   return (
     <motion.button
@@ -37,7 +36,6 @@ function AlbumCard({ album, onClick, imageUrl }: { album: JellyfinItem; onClick:
               <Disc3 className="w-16 h-16 text-white/20" />
             </div>
           )}
-          {/* Glass overlay on hover */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <div className="glass-strong rounded-full p-2">
@@ -86,9 +84,9 @@ export function AlbumGrid({ albums, isLoading, onAlbumClick }: AlbumGridProps) {
         <div className="glass-strong rounded-full p-6">
           <Disc3 className="w-12 h-12 text-muted-foreground/50" />
         </div>
-        <p className="text-muted-foreground text-lg">No albums found</p>
+        <p className="text-muted-foreground text-lg">Nenhum álbum encontrado</p>
         <p className="text-muted-foreground/60 text-sm">
-          Try selecting a different music library
+          Tente selecionar uma biblioteca diferente
         </p>
       </div>
     );

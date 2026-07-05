@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Play, Pause, Clock, Music, Disc3 } from "lucide-react";
+import { Play, Pause, Music, Disc3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { usePlayer, formatTime, trackFromJellyfinItem } from "@/hooks/use-player";
@@ -15,13 +15,41 @@ interface TrackListProps {
   albumArtist?: string;
 }
 
+function TrackSkeletonRow({ index, style }: { index: number; style: React.CSSProperties }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.03, duration: 0.3 }}
+      className="flex items-center gap-3 p-3 rounded-lg"
+      style={style}
+    >
+      <Skeleton className="w-5 h-5 shrink-0 rounded-md bg-white/[0.06]" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-4 w-3/5 rounded-md bg-white/[0.06]" />
+        <Skeleton className="h-3 w-2/5 rounded-md bg-white/[0.04]" />
+      </div>
+      <Skeleton className="h-3 w-10 rounded-md bg-white/[0.04]" />
+    </motion.div>
+  );
+}
+
 export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }: TrackListProps) {
   const { getImageUrl } = useJellyfin();
-  const { play, playQueue, currentTrack, isPlaying, togglePlay } = usePlayer();
+  const { playQueue, currentTrack, isPlaying } = usePlayer();
+
+  // Ordena músicas em ordem alfabética por nome
+  const sortedTracks = useMemo(() => {
+    return [...tracks].sort((a, b) => {
+      const nameA = (a.Name || "").toLowerCase();
+      const nameB = (b.Name || "").toLowerCase();
+      return nameA.localeCompare(nameB, "pt-BR");
+    });
+  }, [tracks]);
 
   const trackItems = useMemo(() => {
     const imageUrl = albumId ? getImageUrl(albumId, { height: 60, width: 60, quality: 90 }) : undefined;
-    return tracks.map((item) =>
+    return sortedTracks.map((item) =>
       trackFromJellyfinItem({
         ...item,
         Album: item.Album || albumName,
@@ -29,7 +57,7 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
         AlbumId: item.AlbumId || albumId,
       }, imageUrl)
     );
-  }, [tracks, albumId, albumName, albumArtist, getImageUrl]);
+  }, [sortedTracks, albumId, albumName, albumArtist, getImageUrl]);
 
   const handlePlayAll = () => {
     if (trackItems.length > 0) {
@@ -44,34 +72,43 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
   if (isLoading) {
     return (
       <div className="space-y-1">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 p-3 rounded-lg">
-            <Skeleton className="w-5 h-5 shrink-0 bg-white/5" />
-            <div className="flex-1 space-y-1.5">
-              <Skeleton className="h-4 w-3/5 bg-white/5" />
-              <Skeleton className="h-3 w-2/5 bg-white/5" />
-            </div>
-            <Skeleton className="h-3 w-10 bg-white/5" />
+        {/* Cabeçalho do skeleton */}
+        <div className="glass-card rounded-xl px-5 py-3 mb-4 flex items-center gap-3">
+          <Skeleton className="w-10 h-10 rounded-full bg-white/[0.06]" />
+          <div className="space-y-1.5 flex-1">
+            <Skeleton className="h-4 w-20 rounded-md bg-white/[0.06]" />
           </div>
+          <Skeleton className="h-3 w-16 rounded-md bg-white/[0.04]" />
+        </div>
+        {/* Linhas de skeleton com staggered delay */}
+        {Array.from({ length: 10 }).map((_, i) => (
+          <TrackSkeletonRow
+            key={i}
+            index={i}
+            style={{
+              animationDelay: `${i * 40}ms`,
+            }}
+          />
         ))}
+        {/* Gradiente de fade no final */}
+        <div className="h-16 bg-gradient-to-t from-background/80 to-transparent relative -mt-16 pointer-events-none" />
       </div>
     );
   }
 
-  if (!tracks.length) {
+  if (!sortedTracks.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4">
         <div className="glass-strong rounded-full p-5">
           <Music className="w-10 h-10 text-muted-foreground/50" />
         </div>
-        <p className="text-muted-foreground">No tracks found</p>
+        <p className="text-muted-foreground">Nenhuma música encontrada</p>
       </div>
     );
   }
 
   return (
     <div>
-      {/* Play all button */}
       <button
         onClick={handlePlayAll}
         className="glass-card rounded-xl px-5 py-3 mb-4 flex items-center gap-3 hover:bg-white/[0.06] transition-all duration-200 group w-full"
@@ -79,11 +116,10 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
         <div className="rounded-full bg-primary/20 p-2.5 group-hover:bg-primary/30 transition-colors">
           <Play className="w-5 h-5 text-primary fill-primary" />
         </div>
-        <span className="text-sm font-medium">Play All</span>
-        <span className="text-xs text-muted-foreground ml-auto">{tracks.length} tracks</span>
+        <span className="text-sm font-medium">Tocar Todas</span>
+        <span className="text-xs text-muted-foreground ml-auto">{sortedTracks.length} músicas</span>
       </button>
 
-      {/* Track list */}
       <div className="space-y-0.5">
         {trackItems.map((track, index) => {
           const isCurrentTrack = currentTrack?.id === track.id;
@@ -101,7 +137,6 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
                   : "hover:bg-white/[0.04] border border-transparent"
               )}
             >
-              {/* Track number or play icon */}
               <div className="w-8 h-8 flex items-center justify-center shrink-0">
                 {isCurrentTrack && isPlaying ? (
                   <div className="flex items-end gap-[2px] h-4">
@@ -119,7 +154,6 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
                 )}
               </div>
 
-              {/* Track info */}
               <div className="flex-1 text-left min-w-0">
                 <p className={cn(
                   "text-sm truncate leading-tight",
@@ -132,7 +166,6 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
                 </p>
               </div>
 
-              {/* Duration */}
               <span className="text-xs text-muted-foreground tabular-nums shrink-0">
                 {formatTime(track.duration)}
               </span>
