@@ -18,6 +18,27 @@ import type { JellyfinItem } from "@/lib/jellyfin";
 
 type ViewType = "albums" | "artists" | "tracks" | "recent" | "search" | "settings";
 
+/** Correct hex-to-HSL conversion (standard algorithm, no atan2 hacks) */
+function hexToHSL(hex: string): { h: number; s: number; l: number } {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.substring(0, 2), 16) / 255;
+  const g = parseInt(clean.substring(2, 4), 16) / 255;
+  const b = parseInt(clean.substring(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
 interface AlbumViewProps {
   albumId: string;
   onBack: () => void;
@@ -110,6 +131,33 @@ export default function Player() {
   } = useJellyfin();
   const { playQueue } = usePlayer();
   const { settings: fgSettings } = useSettings();
+
+  // Dynamic theme: derive accent colors from the fold gradient palette
+  useEffect(() => {
+    const colors = fgSettings.colors;
+    if (!colors || colors.length === 0) return;
+    // Pick the middle color as the accent source
+    const midColor = colors[Math.floor(colors.length / 2)];
+    const { h, s, l } = hexToHSL(midColor);
+    // Ensure minimum saturation/lightness for readability on dark backgrounds
+    const sat = Math.max(s, 35);
+    const lit = Math.max(Math.min(l, 65), 40);
+    const root = document.documentElement;
+    root.style.setProperty("--primary", `hsl(${h} ${sat}% ${lit}%)`);
+    root.style.setProperty("--primary-foreground", `hsl(${h} ${Math.min(sat, 15)}% 97%)`);
+    root.style.setProperty("--ring", `hsl(${h} ${sat}% ${lit}% / 0.5)`);
+    root.style.setProperty("--chart-1", `hsl(${h} ${sat}% ${lit}%)`);
+    root.style.setProperty("--sidebar-primary", `hsl(${h} ${Math.max(sat - 10, 20)}% ${Math.max(lit - 5, 35)}%)`);
+    root.style.setProperty("--sidebar-accent", `hsl(${h} ${Math.max(sat - 20, 10)}% ${Math.min(lit + 10, 55)}% / 0.4)`);
+    root.style.setProperty("--sidebar-ring", `hsl(${h} ${sat}% ${lit}% / 0.4)`);
+    root.style.setProperty("--glow-accent", `hsl(${h} ${sat}% ${lit}% / 0.12)`);
+    root.style.setProperty("--glow-primary", `hsl(${h} ${sat}% ${lit}% / 0.2)`);
+    return () => {
+      ["--primary", "--primary-foreground", "--ring", "--chart-1",
+       "--sidebar-primary", "--sidebar-accent", "--sidebar-ring",
+       "--glow-accent", "--glow-primary"].forEach((v) => root.style.removeProperty(v));
+    };
+  }, [fgSettings.colors]);
 
   const [activeView, setActiveView] = useState<ViewType>("albums");
   const [searchQuery, setSearchQuery] = useState("");

@@ -181,10 +181,10 @@ body::after {
 @utility glass-card-hover {
   &:hover {
     background: oklch(0.25 0.05 280 / 0.35);
-    border-color: oklch(0.68 0.18 300 / 0.2);
+    border-color: color-mix(in oklab, var(--primary) 20%, transparent);
     box-shadow:
       0 1px 0 0 oklch(1 0 0 / 0.1) inset,
-      0 0 20px oklch(0.68 0.18 300 / 0.1),
+      0 0 20px var(--glow-accent, oklch(0.68 0.18 300 / 0.1)),
       0 8px 32px oklch(0 0 0 / 0.3);
     transform: translateY(-1px);
   }
@@ -192,8 +192,8 @@ body::after {
 
 @utility glass-glow {
   box-shadow:
-    0 0 20px oklch(0.68 0.18 300 / 0.15),
-    0 0 40px oklch(0.68 0.18 300 / 0.05);
+    0 0 20px var(--glow-accent, oklch(0.68 0.18 300 / 0.15)),
+    0 0 40px var(--glow-primary, oklch(0.68 0.18 300 / 0.05));
 }
 
 /* Custom scrollbar for the glassmorphic look */
