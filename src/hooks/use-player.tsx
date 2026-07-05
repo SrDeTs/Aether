@@ -90,6 +90,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // Keep queue ref in sync (runs every render)
   queueRef.current = queue;
 
+  // Define playTrackAtIndex as a regular function declaration (hoisted)
+  // so it can be referenced by the ref assignment before its definition.
+  function playTrackFn(index: number, tracks: TrackInfo[]) {
+    const audio = audioRef.current;
+    if (!audio || index < 0 || index >= tracks.length) return;
+
+    const track = tracks[index];
+    currentIndexRef.current = index;
+    const streamUrl = jellyfinClient.getStreamUrl(track.id);
+    const transcodedUrl = jellyfinClient.getStreamUrlTranscoded(track.id);
+
+    setCurrentTrack(track);
+    setError(null);
+    setIsLoading(true);
+
+    // Try direct stream first, fall back to transcoded
+    audio.src = streamUrl;
+    audio.play().catch(() => {
+      // Fallback to transcoded
+      audio.src = transcodedUrl;
+      audio.play().catch((e) => {
+        setError("Failed to play audio: " + e.message);
+        setIsLoading(false);
+      });
+    });
+  }
+
+  // Sync the ref immediately during render (function is hoisted so no TDZ)
+  playTrackRef.current = playTrackFn;
+
   // Initialize audio element
   useEffect(() => {
     const audio = new Audio();
@@ -150,46 +180,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("player_volume", String(volume));
   }, [volume, isMuted]);
 
-  const playTrackAtIndex = useCallback((index: number, tracks: TrackInfo[]) => {
-    const audio = audioRef.current;
-    if (!audio || index < 0 || index >= tracks.length) return;
-
-    const track = tracks[index];
-    currentIndexRef.current = index;
-    const streamUrl = jellyfinClient.getStreamUrl(track.id);
-    const transcodedUrl = jellyfinClient.getStreamUrlTranscoded(track.id);
-
-    setCurrentTrack(track);
-    setError(null);
-    setIsLoading(true);
-
-    // Try direct stream first, fall back to transcoded
-    audio.src = streamUrl;
-    audio.play().catch(() => {
-      // Fallback to transcoded
-      audio.src = transcodedUrl;
-      audio.play().catch((e) => {
-        setError("Failed to play audio: " + e.message);
-        setIsLoading(false);
-      });
-    });
-  }, []);
-
-  // Keep playTrackAtIndex ref in sync (runs after useCallback declaration)
-  playTrackRef.current = playTrackAtIndex;
-
   const play = useCallback((track: TrackInfo) => {
     const tracks = [track];
     setQueueState(tracks);
     currentIndexRef.current = 0;
-    playTrackAtIndex(0, tracks);
-  }, [playTrackAtIndex]);
+    playTrackFn(0, tracks);
+  }, []);
 
   const playQueue = useCallback((tracks: TrackInfo[], startIndex: number = 0) => {
     setQueueState(tracks);
     currentIndexRef.current = startIndex;
-    playTrackAtIndex(startIndex, tracks);
-  }, [playTrackAtIndex]);
+    playTrackFn(startIndex, tracks);
+  }, []);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
@@ -225,14 +227,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const next = useCallback(() => {
     const nextIndex = currentIndexRef.current + 1;
     if (nextIndex < queue.length) {
-      playTrackAtIndex(nextIndex, queue);
+      playTrackFn(nextIndex, queue);
     }
-  }, [queue, playTrackAtIndex]);
+  }, [queue]);
 
   const previous = useCallback(() => {
     const prevIndex = currentIndexRef.current - 1;
     if (prevIndex >= 0) {
-      playTrackAtIndex(prevIndex, queue);
+      playTrackFn(prevIndex, queue);
     } else {
       // Restart current
       if (audioRef.current) {
@@ -240,7 +242,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setCurrentTime(0);
       }
     }
-  }, [queue, playTrackAtIndex]);
+  }, [queue]);
 
   const addToQueue = useCallback((track: TrackInfo) => {
     setQueueState((prev) => [...prev, track]);
