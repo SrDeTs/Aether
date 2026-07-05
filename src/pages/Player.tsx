@@ -5,10 +5,13 @@ import { ArrowLeft, Disc3, Mic2, Music, ListMusic } from "lucide-react";
 import { jellyfinClient } from "@/lib/jellyfin";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { usePlayer, trackFromJellyfinItem } from "@/hooks/use-player";
+import { useSettings } from "@/hooks/use-settings";
 import { Sidebar } from "@/components/player/Sidebar";
 import { AlbumGrid } from "@/components/player/AlbumGrid";
 import { TrackList } from "@/components/player/TrackList";
 import { NowPlayingBar } from "@/components/player/NowPlayingBar";
+import { SettingsPanel } from "@/components/player/SettingsPanel";
+import FoldGradient from "@/components/FoldGradient/FoldGradient";
 import type { JellyfinItem } from "@/lib/jellyfin";
 
 type ViewType = "albums" | "artists" | "tracks" | "recent" | "search";
@@ -108,7 +111,9 @@ export default function Player() {
     selectLibrary,
   } = useJellyfin();
   const { playQueue } = usePlayer();
+  const { settings: fgSettings } = useSettings();
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeView, setActiveView] = useState<ViewType>("albums");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
@@ -241,7 +246,24 @@ export default function Player() {
 
   return (
     <div className="h-screen flex flex-col">
-      <div className="flex flex-1 overflow-hidden">
+      {/* Fold gradient background */}
+      <div className="fixed inset-0 z-0">
+        <FoldGradient
+          colors={fgSettings.colors}
+          bgColor={fgSettings.bgColor}
+          shadowColor={fgSettings.shadowColor}
+          softness={fgSettings.softness}
+          saturation={fgSettings.saturation}
+          rotation={fgSettings.rotation}
+          zoom={fgSettings.zoom}
+          ribbon={fgSettings.ribbon}
+          ribbonWidth={fgSettings.ribbonWidth}
+          speed={fgSettings.speed}
+          style={{ position: "absolute", inset: 0 }}
+        />
+      </div>
+
+      <div className="flex flex-1 overflow-hidden relative z-10">
         {/* Sidebar */}
         <Sidebar
           activeView={activeView}
@@ -249,13 +271,11 @@ export default function Player() {
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
           onAlbumClick={handleAlbumClick}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
         {/* Main content */}
         <div className="flex-1 overflow-y-auto relative">
-          {/* Background glow for content area */}
-          <div className="fixed top-0 right-0 w-96 h-96 bg-purple-600/3 blur-[120px] rounded-full pointer-events-none" />
-
           <div className="p-6 pb-28 max-w-7xl mx-auto relative z-10">
             {/* Header */}
             <div className="mb-6">
@@ -402,6 +422,12 @@ export default function Player() {
 
       {/* Now Playing Bar */}
       <NowPlayingBar />
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }

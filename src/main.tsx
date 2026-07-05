@@ -11,6 +11,7 @@ import "./index.css";
 import "./types/global.d.ts";
 import { JellyfinProvider } from "@/hooks/use-jellyfin";
 import { PlayerProvider } from "@/hooks/use-player";
+import { SettingsProvider } from "@/hooks/use-settings";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -66,13 +67,15 @@ createRoot(document.getElementById("root")!).render(
           <Suspense fallback={<RouteLoading />}>
             <JellyfinProvider>
               <PlayerProvider>
-                <Routes>
+                <SettingsProvider>
+                  <Routes>
                   <Route path="/" element={<Landing />} />
                   <Route path="/auth" element={<AuthPage redirectAfterAuth="/" />} />
                   <Route path="/connect" element={<ConnectPage />} />
                   <Route path="/player" element={<PlayerPage />} />
                   <Route path="*" element={<NotFound />} />
-                </Routes>
+                  </Routes>
+                </SettingsProvider>
               </PlayerProvider>
             </JellyfinProvider>
           </Suspense>

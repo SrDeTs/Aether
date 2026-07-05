@@ -10,6 +10,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useJellyfin } from "@/hooks/use-jellyfin";
@@ -26,6 +27,7 @@ interface SidebarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onAlbumClick: (albumId: string) => void;
+  onOpenSettings: () => void;
 }
 
 const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
@@ -35,7 +37,7 @@ const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: "recent", label: "Recent", icon: <Clock className="w-4 h-4" /> },
 ];
 
-export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange }: SidebarProps) {
+export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange, onOpenSettings }: SidebarProps) {
   const { musicLibraries, selectedLibrary, selectLibrary, userName, disconnect, getImageUrl } = useJellyfin();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -146,6 +148,23 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange 
                   className="pl-8 h-8 text-xs bg-white/[0.04] border-white/[0.06] rounded-lg"
                 />
               </div>
+            </>
+          )}
+
+          {/* Settings */}
+          {!collapsed && (
+            <>
+              <Separator className="my-3 bg-white/[0.04]" />
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-2 mb-2">
+                App
+              </p>
+              <button
+                onClick={onOpenSettings}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-white/[0.04] border border-transparent"
+              >
+                <Settings2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Configurações</span>
+              </button>
             </>
           )}
         </div>
