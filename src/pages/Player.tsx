@@ -11,7 +11,7 @@ import { AlbumGrid } from "@/components/player/AlbumGrid";
 import { TrackList } from "@/components/player/TrackList";
 import { NowPlayingBar } from "@/components/player/NowPlayingBar";
 import { SettingsPanel } from "@/components/player/SettingsPanel";
-import FoldGradient from "@/components/FoldGradient/FoldGradient";
+import AnimatedFoldGradient from "@/components/FoldGradient/AnimatedFoldGradient";
 import type { JellyfinItem } from "@/lib/jellyfin";
 
 type ViewType = "albums" | "artists" | "tracks" | "recent" | "search";
@@ -246,9 +246,9 @@ export default function Player() {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Fold gradient background */}
+      {/* Fold gradient background com animação suave entre presets */}
       <div className="fixed inset-0 z-0">
-        <FoldGradient
+        <AnimatedFoldGradient
           colors={fgSettings.colors}
           bgColor={fgSettings.bgColor}
           shadowColor={fgSettings.shadowColor}
