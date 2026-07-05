@@ -1,0 +1,302 @@
+import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import { jellyfinClient } from "@/lib/jellyfin";
+
+export interface TrackInfo {
+  id: string;
+  name: string;
+  album?: string;
+  albumId?: string;
+  artist?: string;
+  artistId?: string;
+  duration: number; // in seconds
+  index: number;
+  imageUrl?: string;
+}
+
+interface PlayerContextType {
+  currentTrack: TrackInfo | null;
+  queue: TrackInfo[];
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  volume: number;
+  isMuted: boolean;
+  isLoading: boolean;
+  error: string | null;
+  play: (track: TrackInfo) => void;
+  playQueue: (tracks: TrackInfo[], startIndex?: number) => void;
+  pause: () => void;
+  resume: () => void;
+  togglePlay: () => void;
+  seek: (time: number) => void;
+  setVolume: (volume: number) => void;
+  toggleMute: () => void;
+  next: () => void;
+  previous: () => void;
+  addToQueue: (track: TrackInfo) => void;
+  removeFromQueue: (index: number) => void;
+  clearQueue: () => void;
+  setQueue: (tracks: TrackInfo[]) => void;
+}
+
+const PlayerContext = createContext<PlayerContextType | null>(null);
+
+function formatDuration(ticks: number): number {
+  // Jellyfin ticks = 10,000,000 per second
+  return Math.floor(ticks / 10000000);
+}
+
+export function formatTime(seconds: number): string {
+  if (!seconds || !isFinite(seconds)) return "0:00";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+export function trackFromJellyfinItem(item: any, imageUrl?: string): TrackInfo {
+  return {
+    id: item.Id,
+    name: item.Name,
+    album: item.Album,
+    albumId: item.AlbumId,
+    artist: item.AlbumArtist || item.Artists?.[0] || item.ArtistItems?.[0]?.Name || "Unknown Artist",
+    artistId: item.AlbumArtistId || item.ArtistItems?.[0]?.Id,
+    duration: formatDuration(item.RunTimeTicks || 0),
+    index: item.IndexNumber || 0,
+    imageUrl,
+  };
+}
+
+export function PlayerProvider({ children }: { children: ReactNode }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<TrackInfo | null>(null);
+  const [queue, setQueueState] = useState<TrackInfo[]>([]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolumeState] = useState(() => {
+    const saved = localStorage.getItem("player_volume");
+    return saved ? parseFloat(saved) : 0.8;
+  });
+  const [isMuted, setIsMuted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const currentIndexRef = useRef(-1);
+
+  // Refs to hold latest values for event listeners (avoids stale closures)
+  const queueRef = useRef<TrackInfo[]>([]);
+  const playTrackRef = useRef<(index: number, tracks: TrackInfo[]) => void>(() => {});
+
+  // Keep queue ref in sync (runs every render)
+  queueRef.current = queue;
+
+  // Initialize audio element
+  useEffect(() => {
+    const audio = new Audio();
+    audio.preload = "auto";
+    audioRef.current = audio;
+
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onDurationChange = () => setDuration(audio.duration || 0);
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onWaiting = () => setIsLoading(true);
+    const onCanPlay = () => setIsLoading(false);
+    const onEnded = () => {
+      // Auto-next using refs to avoid stale closures
+      const nextIndex = currentIndexRef.current + 1;
+      const q = queueRef.current;
+      if (nextIndex < q.length) {
+        playTrackRef.current(nextIndex, q);
+      } else {
+        setIsPlaying(false);
+        setCurrentTime(0);
+      }
+    };
+    const onError = () => {
+      setIsLoading(false);
+      setError("Failed to load audio stream");
+      setIsPlaying(false);
+    };
+
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("durationchange", onDurationChange);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("waiting", onWaiting);
+    audio.addEventListener("canplay", onCanPlay);
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+
+    return () => {
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("durationchange", onDurationChange);
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("waiting", onWaiting);
+      audio.removeEventListener("canplay", onCanPlay);
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
+      audio.pause();
+      audio.src = "";
+    };
+  }, []);
+
+  // Update volume
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
+    }
+    localStorage.setItem("player_volume", String(volume));
+  }, [volume, isMuted]);
+
+  const playTrackAtIndex = useCallback((index: number, tracks: TrackInfo[]) => {
+    const audio = audioRef.current;
+    if (!audio || index < 0 || index >= tracks.length) return;
+
+    const track = tracks[index];
+    currentIndexRef.current = index;
+    const streamUrl = jellyfinClient.getStreamUrl(track.id);
+    const transcodedUrl = jellyfinClient.getStreamUrlTranscoded(track.id);
+
+    setCurrentTrack(track);
+    setError(null);
+    setIsLoading(true);
+
+    // Try direct stream first, fall back to transcoded
+    audio.src = streamUrl;
+    audio.play().catch(() => {
+      // Fallback to transcoded
+      audio.src = transcodedUrl;
+      audio.play().catch((e) => {
+        setError("Failed to play audio: " + e.message);
+        setIsLoading(false);
+      });
+    });
+  }, []);
+
+  // Keep playTrackAtIndex ref in sync (runs after useCallback declaration)
+  playTrackRef.current = playTrackAtIndex;
+
+  const play = useCallback((track: TrackInfo) => {
+    const tracks = [track];
+    setQueueState(tracks);
+    currentIndexRef.current = 0;
+    playTrackAtIndex(0, tracks);
+  }, [playTrackAtIndex]);
+
+  const playQueue = useCallback((tracks: TrackInfo[], startIndex: number = 0) => {
+    setQueueState(tracks);
+    currentIndexRef.current = startIndex;
+    playTrackAtIndex(startIndex, tracks);
+  }, [playTrackAtIndex]);
+
+  const pause = useCallback(() => {
+    audioRef.current?.pause();
+  }, []);
+
+  const resume = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio && currentTrack) {
+      audio.play().catch((e) => setError("Failed to resume: " + e.message));
+    }
+  }, [currentTrack]);
+
+  const togglePlay = useCallback(() => {
+    if (isPlaying) pause();
+    else resume();
+  }, [isPlaying, pause, resume]);
+
+  const seek = useCallback((time: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  }, []);
+
+  const setVolume = useCallback((v: number) => {
+    setVolumeState(Math.max(0, Math.min(1, v)));
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted((m) => !m);
+  }, []);
+
+  const next = useCallback(() => {
+    const nextIndex = currentIndexRef.current + 1;
+    if (nextIndex < queue.length) {
+      playTrackAtIndex(nextIndex, queue);
+    }
+  }, [queue, playTrackAtIndex]);
+
+  const previous = useCallback(() => {
+    const prevIndex = currentIndexRef.current - 1;
+    if (prevIndex >= 0) {
+      playTrackAtIndex(prevIndex, queue);
+    } else {
+      // Restart current
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        setCurrentTime(0);
+      }
+    }
+  }, [queue, playTrackAtIndex]);
+
+  const addToQueue = useCallback((track: TrackInfo) => {
+    setQueueState((prev) => [...prev, track]);
+  }, []);
+
+  const removeFromQueue = useCallback((index: number) => {
+    setQueueState((prev) => {
+      const next = [...prev];
+      next.splice(index, 1);
+      return next;
+    });
+  }, []);
+
+  const clearQueue = useCallback(() => {
+    setQueueState([]);
+  }, []);
+
+  const setQueue = useCallback((tracks: TrackInfo[]) => {
+    setQueueState(tracks);
+  }, []);
+
+  return (
+    <PlayerContext.Provider
+      value={{
+        currentTrack,
+        queue,
+        isPlaying,
+        currentTime,
+        duration,
+        volume,
+        isMuted,
+        isLoading,
+        error,
+        play,
+        playQueue,
+        pause,
+        resume,
+        togglePlay,
+        seek,
+        setVolume,
+        toggleMute,
+        next,
+        previous,
+        addToQueue,
+        removeFromQueue,
+        clearQueue,
+        setQueue,
+      }}
+    >
+      {children}
+    </PlayerContext.Provider>
+  );
+}
+
+export function usePlayer(): PlayerContextType {
+  const ctx = useContext(PlayerContext);
+  if (!ctx) throw new Error("usePlayer must be used within PlayerProvider");
+  return ctx;
+}

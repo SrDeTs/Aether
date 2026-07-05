@@ -1,3 +1,4 @@
+import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { InstrumentationProvider } from "@/instrumentation.tsx";
@@ -8,10 +9,14 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 import "./types/global.d.ts";
+import { JellyfinProvider } from "@/hooks/use-jellyfin";
+import { PlayerProvider } from "@/hooks/use-player";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
+const ConnectPage = lazy(() => import("./pages/Connect.tsx"));
+const PlayerPage = lazy(() => import("./pages/Player.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -59,11 +64,17 @@ createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/auth" element={<AuthPage redirectAfterAuth="/" />} /> {/* TODO: change redirect after auth to correct page */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <JellyfinProvider>
+              <PlayerProvider>
+                <Routes>
+                  <Route path="/" element={<Landing />} />
+                  <Route path="/auth" element={<AuthPage redirectAfterAuth="/" />} />
+                  <Route path="/connect" element={<ConnectPage />} />
+                  <Route path="/player" element={<PlayerPage />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </PlayerProvider>
+            </JellyfinProvider>
           </Suspense>
         </BrowserRouter>
         <Toaster />
