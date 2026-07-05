@@ -29,7 +29,8 @@ function RouteLoading() {
   );
 }
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+const convexUrl = import.meta.env.VITE_CONVEX_URL || "https://dummy-convex-url.convex.cloud";
+const convex = new ConvexReactClient(convexUrl);
 
 
 

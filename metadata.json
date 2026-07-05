@@ -1,0 +1,6 @@
+{
+  "name": "JellyMusic",
+  "description": "Um reprodutor de música elegante e responsivo projetado para se conectar e transmitir áudio de servidores Jellyfin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
