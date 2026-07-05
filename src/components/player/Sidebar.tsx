@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import {
   Library,
@@ -20,7 +19,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 
-type ViewType = "albums" | "artists" | "tracks" | "recent" | "search";
+type ViewType = "albums" | "artists" | "tracks" | "recent" | "search" | "settings";
 
 interface SidebarProps {
   activeView: ViewType;
@@ -35,10 +34,10 @@ const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: "artists", label: "Artistas", icon: <Mic2 className="w-4 h-4" /> },
   { id: "tracks", label: "Músicas", icon: <Music className="w-4 h-4" /> },
   { id: "recent", label: "Recentes", icon: <Clock className="w-4 h-4" /> },
+  { id: "settings", label: "Configurações", icon: <Settings2 className="w-4 h-4" /> },
 ];
 
 export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange }: SidebarProps) {
-  const navigate = useNavigate();
   const { musicLibraries, selectedLibrary, selectLibrary, userName, disconnect } = useJellyfin();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -146,21 +145,7 @@ export function Sidebar({ activeView, onViewChange, searchQuery, onSearchChange 
             </>
           )}
 
-          {!collapsed && (
-            <>
-              <Separator className="my-3 bg-white/[0.04]" />
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-2 mb-2">
-                App
-              </p>
-              <button
-                onClick={() => navigate("/settings")}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-white/[0.04] border border-transparent"
-              >
-                <Settings2 className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">Configurações</span>
-              </button>
-            </>
-          )}
+
         </div>
       </ScrollArea>
 

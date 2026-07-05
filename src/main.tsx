@@ -18,7 +18,6 @@ const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const ConnectPage = lazy(() => import("./pages/Connect.tsx"));
 const PlayerPage = lazy(() => import("./pages/Player.tsx"));
-const SettingsPage = lazy(() => import("./pages/Settings.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -74,7 +73,6 @@ createRoot(document.getElementById("root")!).render(
                   <Route path="/auth" element={<AuthPage redirectAfterAuth="/" />} />
                   <Route path="/connect" element={<ConnectPage />} />
                   <Route path="/player" element={<PlayerPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
                   <Route path="*" element={<NotFound />} />
                   </Routes>
                 </SettingsProvider>
