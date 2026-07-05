@@ -49,10 +49,9 @@ function AlbumView({ albumId, onBack }: AlbumViewProps) {
       <button
         onClick={onBack}
         className="glass rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        Voltar para Álbuns
-      </button>
+      >                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Voltar para Álbuns
+                </button>
 
       <div className="flex flex-col md:flex-row gap-6 items-start">
         <div className="w-48 h-48 rounded-2xl overflow-hidden shrink-0 shadow-2xl">
@@ -95,48 +94,6 @@ function AlbumView({ albumId, onBack }: AlbumViewProps) {
   );
 }
 
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
-  return [
-    parseInt(h.slice(0, 2), 16) / 255,
-    parseInt(h.slice(2, 4), 16) / 255,
-    parseInt(h.slice(4, 6), 16) / 255,
-  ];
-}
-
-function rgbToOklch(r: number, g: number, b: number, lightness = 0.6, chroma = 0.15): string {
-  const hue = Math.atan2(b - 0.5, r - 0.5) * (180 / Math.PI);
-  const h = ((hue % 360) + 360) % 360;
-  return `oklch(${lightness} ${chroma} ${h})`;
-}
-
-function getThemeColors(colors: string[]) {
-  if (!colors || colors.length === 0) {
-    return {
-      primary: "oklch(0.68 0.18 300)",
-      accent: "oklch(0.55 0.15 280)",
-      muted: "oklch(0.65 0.04 280)",
-      chart1: "oklch(0.68 0.18 300)",
-    };
-  }
-  const primaryHex = colors[Math.min(2, colors.length - 1)];
-  const accentHex = colors[Math.min(1, colors.length - 1)];
-  const mutedHex = colors[0];
-  const chartHex = colors[colors.length - 1];
-
-  const [pr, pg, pb] = hexToRgb(primaryHex);
-  const [ar, ag, ab] = hexToRgb(accentHex);
-  const [mr, mg, mm] = hexToRgb(mutedHex);
-  const [cr, cg, cb] = hexToRgb(chartHex);
-
-  return {
-    primary: rgbToOklch(pr, pg, pb, 0.65, 0.18),
-    accent: rgbToOklch(ar, ag, ab, 0.55, 0.15),
-    muted: rgbToOklch(mr, mg, mm, 0.6, 0.06),
-    chart1: rgbToOklch(cr, cg, cb, 0.62, 0.2),
-  };
-}
-
 export default function Player() {
   const navigate = useNavigate();
   const {
@@ -164,17 +121,6 @@ export default function Player() {
   const [recentTracks, setRecentTracks] = useState<JellyfinItem[]>([]);
   const [searchResults, setSearchResults] = useState<JellyfinItem[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // Dynamic theme based on fold gradient colors
-  useEffect(() => {
-    const theme = getThemeColors(fgSettings.colors);
-    const root = document.documentElement;
-    root.style.setProperty("--primary", theme.primary);
-    root.style.setProperty("--accent", theme.accent);
-    root.style.setProperty("--muted-foreground", theme.muted);
-    root.style.setProperty("--chart-1", theme.chart1);
-    root.style.setProperty("--ring", theme.primary.replace(")", " / 0.5)"));
-  }, [fgSettings.colors]);
 
   useEffect(() => {
     if (!connected) navigate("/connect", { replace: true });
@@ -455,7 +401,7 @@ function SettingsView() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {PRESETS.map((preset) => {
                 const grad = preset.settings.colors.length >= 2
-                  ? `linear-gradient(135deg, ${preset.settings.colors[0]}, ${preset.settings.colors[preset.settings.colors.length - 1]})`
+                  ? `linear-gradient(135deg, ${preset.settings.colors.join(", ")})`
                   : preset.settings.bgColor;
                 return (
                   <button key={preset.id} onClick={() => applyPreset(preset.id)}
