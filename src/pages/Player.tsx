@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Disc3, Mic2, Music, ListMusic, Palette, Volume2, Info, Sparkles, Sliders, RotateCcw, Settings2, Search, Loader2, X } from "lucide-react";
-import iconWebp from "../../assets/icon.webp";
+import iconWebp from "../../assets/icon-bg.png";
 import { jellyfinClient } from "@/lib/jellyfin";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { usePlayer } from "@/hooks/use-player";
