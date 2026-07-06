@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { Disc3, Server, Key, User, Lock, AlertCircle, Check, Loader } from "lucide-react";
-import iconWebp from "../../assets/icon.webp";
+import iconWebp from "../../assets/icon-bg.png";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
