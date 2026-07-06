@@ -1,6 +1,6 @@
-# JellyMusic 🎵
+# Aether 🎵
 
-**JellyMusic** é um reprodutor de música web moderno, elegante e altamente responsivo projetado especificamente para se conectar e transmitir áudio diretamente do seu servidor pessoal **Jellyfin**. 
+**Aether** é um reprodutor de música web moderno, elegante e altamente responsivo projetado especificamente para se conectar e transmitir áudio diretamente do seu servidor pessoal **Jellyfin**. 
 
 Desenvolvido com foco na estética visual e em interações fluidas, o JellyMusic oferece uma interface impecável baseada em design de vidro (glassmorphism), animações de transição suaves e paletas de cores dinâmicas para proporcionar a melhor experiência de audição para a sua biblioteca de áudio.
 
@@ -77,8 +77,8 @@ Certifique-se de ter instalado em sua máquina:
 
 1.  **Clonar o repositório:**
     ```bash
-    git clone <https://github.com/SrDeTs/jellyfin-glass-player>
-    cd jellyfin-glass-player
+    git clone <https://github.com/SrDeTs/Aether>
+    cd Aether
     ```
 
 2.  **Instalar as dependências:**
