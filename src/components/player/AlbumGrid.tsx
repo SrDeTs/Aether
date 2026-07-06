@@ -80,14 +80,11 @@ export function AlbumGrid({ albums, isLoading, onAlbumClick }: AlbumGridProps) {
 
   if (!albums.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="glass-strong rounded-full p-6">
-          <Disc3 className="w-12 h-12 text-muted-foreground/50" />
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <div className="glass-strong rounded-full p-4">
+          <Disc3 className="w-8 h-8 text-muted-foreground/40 animate-pulse" />
         </div>
-        <p className="text-muted-foreground text-lg">Nenhum álbum encontrado</p>
-        <p className="text-muted-foreground/60 text-sm">
-          Tente selecionar uma biblioteca diferente
-        </p>
+        <p className="text-muted-foreground text-sm font-medium">Nenhum álbum encontrado</p>
       </div>
     );
   }

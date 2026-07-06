@@ -1,9 +1,5 @@
-import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
-import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { InstrumentationProvider } from "@/instrumentation.tsx";
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { ConvexReactClient } from "convex/react";
 import { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
@@ -15,7 +11,6 @@ import { SettingsProvider } from "@/hooks/use-settings";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
-const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const ConnectPage = lazy(() => import("./pages/Connect.tsx"));
 const PlayerPage = lazy(() => import("./pages/Player.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -28,9 +23,6 @@ function RouteLoading() {
     </div>
   );
 }
-
-const convexUrl = import.meta.env.VITE_CONVEX_URL || "https://dummy-convex-url.convex.cloud";
-const convex = new ConvexReactClient(convexUrl);
 
 
 
@@ -60,29 +52,25 @@ function RouteSyncer() {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <VlyToolbar />
     <InstrumentationProvider>
-      <ConvexAuthProvider client={convex}>
-        <BrowserRouter>
-          <RouteSyncer />
-          <Suspense fallback={<RouteLoading />}>
-            <JellyfinProvider>
-              <PlayerProvider>
-                <SettingsProvider>
-                  <Routes>
+      <BrowserRouter>
+        <RouteSyncer />
+        <Suspense fallback={<RouteLoading />}>
+          <JellyfinProvider>
+            <PlayerProvider>
+              <SettingsProvider>
+                <Routes>
                   <Route path="/" element={<Landing />} />
-                  <Route path="/auth" element={<AuthPage redirectAfterAuth="/" />} />
                   <Route path="/connect" element={<ConnectPage />} />
                   <Route path="/player" element={<PlayerPage />} />
                   <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </SettingsProvider>
-              </PlayerProvider>
-            </JellyfinProvider>
-          </Suspense>
-        </BrowserRouter>
-        <Toaster />
-      </ConvexAuthProvider>
+                </Routes>
+              </SettingsProvider>
+            </PlayerProvider>
+          </JellyfinProvider>
+        </Suspense>
+      </BrowserRouter>
+      <Toaster />
     </InstrumentationProvider>
   </StrictMode>,
 );

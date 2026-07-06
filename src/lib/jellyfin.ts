@@ -121,11 +121,12 @@ export class JellyfinClient {
       ...(options.headers as Record<string, string>),
     };
 
-    if (!useApiKey) {
-      headers["Authorization"] = buildAuthHeader(this.config.token);
-    } else {
-      headers["X-Emby-Token"] = this.config.token;
-    }
+    // Sempre enviamos o X-Emby-Token para compatibilidade máxima com API Key e Session Token
+    headers["X-Emby-Token"] = this.config.token;
+
+    // Também enviamos o cabeçalho clássico customizado do Jellyfin/Emby (evitando o Authorization padrão que pode ser bloqueado por proxies reversos)
+    headers["X-Emby-Authorization"] = buildAuthHeader(this.config.token);
+
     headers["Accept"] = "application/json";
 
     const response = await fetch(url, { ...options, headers });
@@ -201,7 +202,7 @@ export class JellyfinClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}"`,
+        "X-Emby-Authorization": `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}"`,
       },
       body: JSON.stringify({ Username: username, Pw: password }),
     });
@@ -223,27 +224,45 @@ export class JellyfinClient {
     apiKey: string,
   ): Promise<{ user: JellyfinUser }> {
     const normalizedUrl = serverUrl.replace(/\/+$/, "");
-    // Temporarily set config for requests
-    const tempConfig: JellyfinConfig = {
-      serverUrl: normalizedUrl,
-      token: apiKey,
-      userId: "",
-    };
 
-    // Use X-Emby-Token header
-    const response = await fetch(`${normalizedUrl}/Users/Me`, {
+    // Tenta primeiro o endpoint /Users/Me (caso a chave de API esteja vinculada a um usuário específico)
+    try {
+      const response = await fetch(`${normalizedUrl}/Users/Me`, {
+        headers: {
+          "X-Emby-Token": apiKey,
+          "X-Emby-Authorization": `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}"`,
+          Accept: "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        return { user: { Id: user.Id, Name: user.Name } };
+      }
+    } catch (e) {
+      console.warn("Falha ao autenticar com /Users/Me, tentando fallback de usuários:", e);
+    }
+
+    // Fallback: se falhar, tenta obter a lista completa de usuários e selecionar o primeiro disponível.
+    // Chaves de API globais criadas pelo administrador do Jellyfin possuem permissão para listar usuários.
+    const response = await fetch(`${normalizedUrl}/Users`, {
       headers: {
         "X-Emby-Token": apiKey,
+        "X-Emby-Authorization": `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}"`,
         Accept: "application/json",
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Invalid API key or server URL (${response.status})`);
+      throw new Error(`Erro na conexão com Jellyfin ou chave de API inválida (${response.status})`);
     }
 
-    const user = await response.json();
-    return { user: { Id: user.Id, Name: user.Name } };
+    const users = await response.json();
+    if (Array.isArray(users) && users.length > 0) {
+      return { user: { Id: users[0].Id, Name: users[0].Name } };
+    }
+
+    throw new Error("Nenhum usuário foi encontrado neste servidor Jellyfin.");
   }
 
   // --- Libraries / Views ---

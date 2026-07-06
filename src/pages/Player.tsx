@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import { ArrowLeft, Disc3, Mic2, Music, ListMusic, Palette, Volume2, Info, Sparkles, Sliders, RotateCcw, Settings2 } from "lucide-react";
+import { ArrowLeft, Disc3, Mic2, Music, ListMusic, Palette, Volume2, Info, Sparkles, Sliders, RotateCcw, Settings2, Search } from "lucide-react";
+import iconWebp from "../../assets/icon.webp";
 import { jellyfinClient } from "@/lib/jellyfin";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { usePlayer } from "@/hooks/use-player";
@@ -13,6 +14,7 @@ import { NowPlayingBar } from "@/components/player/NowPlayingBar";
 import AnimatedFoldGradient from "@/components/FoldGradient/AnimatedFoldGradient";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { JellyfinItem } from "@/lib/jellyfin";
 
@@ -139,19 +141,34 @@ export default function Player() {
     // Pick the middle color as the accent source
     const midColor = colors[Math.floor(colors.length / 2)];
     const { h, s, l } = hexToHSL(midColor);
-    // Ensure minimum saturation/lightness for readability on dark backgrounds
-    const sat = Math.max(s, 35);
-    const lit = Math.max(Math.min(l, 65), 40);
+    
+    // Check if the color palette is monochromatic (very low saturation)
+    const isMono = s <= 5;
+    const sat = isMono ? 0 : Math.max(s, 35);
+    const lit = isMono ? 85 : Math.max(Math.min(l, 65), 40);
+
+    const sidebarPrimarySat = isMono ? 0 : Math.max(sat - 10, 20);
+    const sidebarPrimaryLit = isMono ? 75 : Math.max(lit - 5, 35);
+
+    const sidebarAccentSat = isMono ? 0 : Math.max(sat - 20, 10);
+    const sidebarAccentLit = isMono ? 35 : Math.min(lit + 10, 55);
+
+    const glowAccentSat = isMono ? 0 : sat;
+    const glowAccentLit = isMono ? 85 : lit;
+
+    const glowPrimarySat = isMono ? 0 : sat;
+    const glowPrimaryLit = isMono ? 85 : lit;
+
     const root = document.documentElement;
     root.style.setProperty("--primary", `hsl(${h} ${sat}% ${lit}%)`);
-    root.style.setProperty("--primary-foreground", `hsl(${h} ${Math.min(sat, 15)}% 97%)`);
+    root.style.setProperty("--primary-foreground", `hsl(${h} ${isMono ? 0 : Math.min(sat, 15)}% ${isMono ? 10 : 97}%)`);
     root.style.setProperty("--ring", `hsl(${h} ${sat}% ${lit}% / 0.5)`);
     root.style.setProperty("--chart-1", `hsl(${h} ${sat}% ${lit}%)`);
-    root.style.setProperty("--sidebar-primary", `hsl(${h} ${Math.max(sat - 10, 20)}% ${Math.max(lit - 5, 35)}%)`);
-    root.style.setProperty("--sidebar-accent", `hsl(${h} ${Math.max(sat - 20, 10)}% ${Math.min(lit + 10, 55)}% / 0.4)`);
+    root.style.setProperty("--sidebar-primary", `hsl(${h} ${sidebarPrimarySat}% ${sidebarPrimaryLit}%)`);
+    root.style.setProperty("--sidebar-accent", `hsl(${h} ${sidebarAccentSat}% ${sidebarAccentLit}% / 0.4)`);
     root.style.setProperty("--sidebar-ring", `hsl(${h} ${sat}% ${lit}% / 0.4)`);
-    root.style.setProperty("--glow-accent", `hsl(${h} ${sat}% ${lit}% / 0.12)`);
-    root.style.setProperty("--glow-primary", `hsl(${h} ${sat}% ${lit}% / 0.2)`);
+    root.style.setProperty("--glow-accent", `hsl(${h} ${glowAccentSat}% ${glowAccentLit}% / 0.12)`);
+    root.style.setProperty("--glow-primary", `hsl(${h} ${glowPrimarySat}% ${glowPrimaryLit}% / 0.2)`);
     return () => {
       ["--primary", "--primary-foreground", "--ring", "--chart-1",
        "--sidebar-primary", "--sidebar-accent", "--sidebar-ring",
@@ -159,7 +176,7 @@ export default function Player() {
     };
   }, [fgSettings.colors]);
 
-  const [activeView, setActiveView] = useState<ViewType>("albums");
+  const [activeView, setActiveView] = useState<ViewType>("tracks");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
 
@@ -231,8 +248,12 @@ export default function Player() {
   }, [searchQuery, connected, jellyfinSearch]);
 
   useEffect(() => {
-    if (searchQuery.trim()) setActiveView("search");
-  }, [searchQuery]);
+    if (searchQuery.trim()) {
+      setActiveView("search");
+    } else if (activeView === "search") {
+      setActiveView("tracks");
+    }
+  }, [searchQuery, activeView]);
 
   const handleViewChange = useCallback((view: ViewType) => {
     setActiveView(view);
@@ -259,7 +280,7 @@ export default function Player() {
   if (!connected) return null;
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col p-4 md:p-6 gap-4 md:gap-6 overflow-hidden relative">
       <div className="fixed inset-0 z-0">
         <AnimatedFoldGradient
           colors={fgSettings.colors}
@@ -276,44 +297,31 @@ export default function Player() {
         />
       </div>
 
-      <div className="flex flex-1 overflow-hidden relative z-10">
+      <div className="flex flex-1 gap-4 md:gap-6 overflow-hidden relative z-10">
         <Sidebar
           activeView={activeView}
           onViewChange={handleViewChange}
-          searchQuery={searchQuery}
-          onSearchChange={handleSearchChange}
-          onAlbumClick={handleAlbumClick}
         />
 
-        <div className="flex-1 overflow-y-auto relative">
-          <div className="p-6 pb-28 max-w-7xl mx-auto relative z-10">
-            <div className="mb-6">
-              {selectedAlbum ? null : (
-                <div className="flex items-center gap-3 mb-1">
-                  {activeView === "albums" && <Disc3 className="w-5 h-5 text-primary" />}
-                  {activeView === "artists" && <Mic2 className="w-5 h-5 text-primary" />}
-                  {activeView === "tracks" && <Music className="w-5 h-5 text-primary" />}
-                  {activeView === "recent" && <ListMusic className="w-5 h-5 text-primary" />}
-                  {activeView === "settings" && <Settings2 className="w-5 h-5 text-primary" />}
-                  <h1 className="text-lg font-semibold text-foreground">
-                    {activeView === "albums" && "Álbuns"}
-                    {activeView === "artists" && "Artistas"}
-                    {activeView === "tracks" && "Todas as Músicas"}
-                    {activeView === "recent" && "Adicionados Recentemente"}
-                    {activeView === "settings" && "Configurações"}
-                    {activeView === "search" && `Busca: "${searchQuery}"`}
-                  </h1>
-                </div>
-              )}
-              {selectedLibrary && !selectedAlbum && (
-                <p className="text-xs text-muted-foreground/60 ml-8">Biblioteca: {selectedLibrary.Name}</p>
-              )}
-            </div>
-
+        <div className="flex-1 overflow-y-auto glass rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none">
+          <div className="p-6 md:p-8 max-w-7xl mx-auto relative z-10">
             {selectedAlbum ? (
               <AlbumView albumId={selectedAlbum} onBack={() => setSelectedAlbum(null)} />
             ) : (
               <>
+                {(activeView === "tracks" || activeView === "search") && (
+                  <div className="mb-6 flex justify-end">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                      <Input
+                        value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        placeholder="Buscar músicas..."
+                        className="pl-10 h-10 text-xs bg-white/[0.03] border-white/[0.06] rounded-xl focus-visible:ring-primary/20 placeholder:text-muted-foreground/40"
+                      />
+                    </div>
+                  </div>
+                )}
                 {activeView === "search" && searchQuery.trim() && (
                   <div className="space-y-8">
                     {searchAlbums.length > 0 && (
@@ -507,9 +515,7 @@ function SettingsView() {
 
       {tab === "sobre" && (
         <div className="glass-strong rounded-2xl p-5 space-y-4 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-purple-500/20 mx-auto">
-            <Disc3 className="w-8 h-8 text-white" />
-          </div>
+          <img src={iconWebp} className="w-16 h-16 rounded-2xl mx-auto shadow-xl" alt="JellyMusic" />
           <div><h2 className="text-lg font-bold">JellyMusic</h2><p className="text-xs text-muted-foreground">v1.0.0</p></div>
           <p className="text-xs text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
             Um reprodutor musical moderno para servidores Jellyfin.<br /> Com temas dinâmicos, efeitos glassmorphism e integração direta.

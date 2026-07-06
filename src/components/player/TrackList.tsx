@@ -24,7 +24,6 @@ function TrackSkeletonRow({ index, style }: { index: number; style: React.CSSPro
       className="flex items-center gap-3 p-3 rounded-lg"
       style={style}
     >
-      <Skeleton className="w-5 h-5 shrink-0 rounded-md bg-white/[0.06]" />
       <div className="flex-1 space-y-2">
         <Skeleton className="h-4 w-3/5 rounded-md bg-white/[0.06]" />
         <Skeleton className="h-3 w-2/5 rounded-md bg-white/[0.04]" />
@@ -40,10 +39,26 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
 
   // Ordena músicas em ordem alfabética por nome
   const sortedTracks = useMemo(() => {
+    const cleanForSort = (str: string) => {
+      if (!str) return "";
+      return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // remove accents/diacritics
+        .toLowerCase()
+        .replace(/^[^a-z0-9]+/, "") // remove leading symbols, punctuation, non-alphanumeric characters
+        .trim();
+    };
+
     return [...tracks].sort((a, b) => {
-      const nameA = (a.Name || "").toLowerCase();
-      const nameB = (b.Name || "").toLowerCase();
-      return nameA.localeCompare(nameB, "pt-BR");
+      const nameA = a.Name || "";
+      const nameB = b.Name || "";
+      const cleanA = cleanForSort(nameA);
+      const cleanB = cleanForSort(nameB);
+      
+      if (cleanA && cleanB) {
+        return cleanA.localeCompare(cleanB, "pt-BR");
+      }
+      return nameA.toLowerCase().localeCompare(nameB.toLowerCase(), "pt-BR");
     });
   }, [tracks]);
 
@@ -72,14 +87,6 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
   if (isLoading) {
     return (
       <div className="space-y-1">
-        {/* Cabeçalho do skeleton */}
-        <div className="glass-card rounded-xl px-5 py-3 mb-4 flex items-center gap-3">
-          <Skeleton className="w-10 h-10 rounded-full bg-white/[0.06]" />
-          <div className="space-y-1.5 flex-1">
-            <Skeleton className="h-4 w-20 rounded-md bg-white/[0.06]" />
-          </div>
-          <Skeleton className="h-3 w-16 rounded-md bg-white/[0.04]" />
-        </div>
         {/* Linhas de skeleton com staggered delay */}
         {Array.from({ length: 10 }).map((_, i) => (
           <TrackSkeletonRow
@@ -109,17 +116,6 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
 
   return (
     <div>
-      <button
-        onClick={handlePlayAll}
-        className="glass-card rounded-xl px-5 py-3 mb-4 flex items-center gap-3 hover:bg-white/[0.06] transition-all duration-200 group w-full"
-      >
-        <div className="rounded-full bg-primary/20 p-2.5 group-hover:bg-primary/30 transition-colors">
-          <Play className="w-5 h-5 text-primary fill-primary" />
-        </div>
-        <span className="text-sm font-medium">Tocar Todas</span>
-        <span className="text-xs text-muted-foreground ml-auto">{sortedTracks.length} músicas</span>
-      </button>
-
       <div className="space-y-0.5">
         {trackItems.map((track, index) => {
           const isCurrentTrack = currentTrack?.id === track.id;
@@ -131,37 +127,29 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
               transition={{ duration: 0.3, delay: index * 0.02 }}
               onClick={() => handleTrackClick(index)}
               className={cn(
-                "w-full flex items-center gap-3 p-2.5 rounded-lg group transition-all duration-200",
+                "w-full flex items-center gap-4 px-3.5 py-2.5 rounded-lg group transition-all duration-200",
                 isCurrentTrack
                   ? "bg-primary/10 border border-primary/20"
                   : "hover:bg-white/[0.04] border border-transparent"
               )}
             >
-              <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                {isCurrentTrack && isPlaying ? (
-                  <div className="flex items-end gap-[2px] h-4">
-                    <span className="w-[3px] bg-primary rounded-full animate-pulse" style={{ height: '60%', animationDelay: '0ms' }} />
-                    <span className="w-[3px] bg-primary rounded-full animate-pulse" style={{ height: '100%', animationDelay: '200ms' }} />
-                    <span className="w-[3px] bg-primary rounded-full animate-pulse" style={{ height: '40%', animationDelay: '400ms' }} />
-                  </div>
-                ) : (
-                  <>
-                    <span className="text-sm text-muted-foreground group-hover:hidden">
-                      {track.index}
-                    </span>
-                    <Play className="w-3.5 h-3.5 text-foreground hidden group-hover:block fill-foreground" />
-                  </>
-                )}
-              </div>
-
               <div className="flex-1 text-left min-w-0">
-                <p className={cn(
-                  "text-sm truncate leading-tight",
-                  isCurrentTrack ? "text-primary font-medium" : "text-foreground"
-                )}>
-                  {track.name}
-                </p>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                <div className="flex items-center gap-2">
+                  {isCurrentTrack && isPlaying && (
+                    <div className="flex items-end gap-[2px] h-3.5 shrink-0 pb-0.5">
+                      <span className="w-[2px] h-3 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                      <span className="w-[2px] h-3.5 bg-primary rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+                      <span className="w-[2px] h-2.5 bg-primary rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
+                    </div>
+                  )}
+                  <p className={cn(
+                    "text-sm truncate leading-tight",
+                    isCurrentTrack ? "text-primary font-medium" : "text-foreground"
+                  )}>
+                    {track.name}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground truncate mt-1">
                   {track.artist}
                 </p>
               </div>

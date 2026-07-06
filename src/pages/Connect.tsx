@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { Disc3, Server, Key, User, Lock, AlertCircle, Check, Loader } from "lucide-react";
+import iconWebp from "../../assets/icon.webp";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,31 +64,26 @@ export default function Connect() {
   const displayError = error || localError;
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
+    <div className="min-h-screen flex items-center justify-center p-6 relative">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-purple-600/5 blur-[100px]" />
         <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-indigo-600/5 blur-[100px]" />
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        transition={{ duration: 0.45, ease: "easeOut" }}
+        className="w-full max-w-md relative z-10"
       >
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-purple-500/20 mb-4">
-            <Disc3 className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">JellyMusic</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Conecte-se ao seu servidor Jellyfin
-          </p>
+        <div className="flex flex-col items-center mb-6">
+          <img src={iconWebp} className="w-14 h-14 rounded-2xl shadow-xl mb-3 object-cover" alt="JellyMusic" />
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">JellyMusic</h1>
         </div>
 
-        <div className="glass-strong rounded-2xl p-6">
+        <div className="glass rounded-2xl md:rounded-3xl p-6 md:p-8 border border-white/[0.04] shadow-2xl shadow-black/40">
           <Tabs defaultValue="password" className="w-full">
-            <TabsList className="w-full mb-6 bg-white/[0.04] rounded-xl p-1">
+            <TabsList className="w-full mb-6 bg-white/[0.03] rounded-xl p-1 border border-white/[0.02]">
               <TabsTrigger value="password" className="flex-1 text-xs rounded-lg data-[state=active]:glass">
                 <User className="w-3.5 h-3.5 mr-1.5" />
                 Usuário
@@ -101,39 +97,36 @@ export default function Connect() {
             <TabsContent value="password">
               <form onSubmit={handlePasswordConnect} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">URL do Servidor</label>
                   <div className="relative">
-                    <Server className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                    <Server className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                     <Input
                       value={serverUrl}
                       onChange={(e) => setServerUrl(e.target.value)}
-                      placeholder="https://seu-servidor-jellyfin:8096"
-                      className="pl-9 h-10 bg-white/[0.04] border-white/[0.08] rounded-xl text-sm"
+                      placeholder="URL do Servidor (ex: http://192.168.1.100:8096)"
+                      className="pl-10 h-10 bg-white/[0.03] border-white/[0.06] rounded-xl text-xs placeholder:text-muted-foreground/40"
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Usuário</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                     <Input
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="jellyfin"
-                      className="pl-9 h-10 bg-white/[0.04] border-white/[0.08] rounded-xl text-sm"
+                      placeholder="Nome do Usuário"
+                      className="pl-10 h-10 bg-white/[0.03] border-white/[0.06] rounded-xl text-xs placeholder:text-muted-foreground/40"
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Senha</label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                     <Input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="pl-9 h-10 bg-white/[0.04] border-white/[0.08] rounded-xl text-sm"
+                      placeholder="Senha do Jellyfin"
+                      className="pl-10 h-10 bg-white/[0.03] border-white/[0.06] rounded-xl text-xs placeholder:text-muted-foreground/40"
                     />
                   </div>
                 </div>
@@ -146,7 +139,7 @@ export default function Connect() {
                 <Button
                   type="submit"
                   disabled={isConnecting || success}
-                  className="w-full h-10 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-purple-500/20 transition-all duration-200"
+                  className="w-full h-10 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-purple-500/20 transition-all duration-200 text-xs"
                 >
                   {isConnecting ? (
                     <Loader className="w-4 h-4 animate-spin mr-2" />
@@ -161,26 +154,24 @@ export default function Connect() {
             <TabsContent value="apikey">
               <form onSubmit={handleApiKeyConnect} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">URL do Servidor</label>
                   <div className="relative">
-                    <Server className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                    <Server className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                     <Input
                       value={apiKeyServerUrl}
                       onChange={(e) => setApiKeyServerUrl(e.target.value)}
-                      placeholder="https://seu-servidor-jellyfin:8096"
-                      className="pl-9 h-10 bg-white/[0.04] border-white/[0.08] rounded-xl text-sm"
+                      placeholder="URL do Servidor (ex: http://192.168.1.100:8096)"
+                      className="pl-10 h-10 bg-white/[0.03] border-white/[0.06] rounded-xl text-xs placeholder:text-muted-foreground/40"
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">API Key</label>
                   <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+                    <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                     <Input
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="sua-api-key"
-                      className="pl-9 h-10 bg-white/[0.04] border-white/[0.08] rounded-xl text-sm"
+                      placeholder="API Key do Jellyfin"
+                      className="pl-10 h-10 bg-white/[0.03] border-white/[0.06] rounded-xl text-xs placeholder:text-muted-foreground/40"
                     />
                   </div>
                 </div>
@@ -193,7 +184,7 @@ export default function Connect() {
                 <Button
                   type="submit"
                   disabled={isConnecting || success}
-                  className="w-full h-10 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-purple-500/20 transition-all duration-200"
+                  className="w-full h-10 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-purple-500/20 transition-all duration-200 text-xs"
                 >
                   {isConnecting ? (
                     <Loader className="w-4 h-4 animate-spin mr-2" />
@@ -206,10 +197,6 @@ export default function Connect() {
             </TabsContent>
           </Tabs>
         </div>
-
-        <p className="text-center text-xs text-muted-foreground/60 mt-6">
-          Seus dados de conexão ficam salvos localmente e nunca são enviados
-        </p>
       </motion.div>
     </div>
   );

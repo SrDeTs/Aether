@@ -6,7 +6,6 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
-  ListMusic,
   Disc3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,13 +31,11 @@ export function NowPlayingBar() {
     toggleMute,
   } = usePlayer();
 
-  const [showQueue, setShowQueue] = useState(false);
-
   if (!currentTrack) {
     return (
-      <div className="h-20 glass border-t border-white/[0.04] flex items-center px-4">
+      <div className="h-20 glass rounded-2xl md:rounded-3xl border border-white/[0.04] flex items-center px-4 md:px-6 shadow-2xl shadow-black/30">
         <div className="flex items-center gap-3 text-muted-foreground/50">
-          <Disc3 className="w-5 h-5" />
+          <Disc3 className="w-5 h-5 animate-spin-slow" />
           <span className="text-sm">Nenhuma música selecionada</span>
         </div>
       </div>
@@ -49,7 +46,7 @@ export function NowPlayingBar() {
   const imageUrl = currentTrack.imageUrl || (currentTrack.albumId ? getImageUrl(currentTrack.albumId, { height: 80, width: 80, quality: 90 }) : undefined);
 
   return (
-    <div className="h-20 glass border-t border-white/[0.04] flex items-center px-4 relative z-50">
+    <div className="h-20 glass rounded-2xl md:rounded-3xl border border-white/[0.04] flex items-center px-4 md:px-6 relative z-50 shadow-2xl shadow-black/40">
       <div className="flex items-center gap-3 w-72 min-w-0">
         <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
           {imageUrl ? (
@@ -138,17 +135,6 @@ export function NowPlayingBar() {
       </div>
 
       <div className="flex items-center gap-2 w-36 justify-end">
-        <button
-          onClick={() => setShowQueue(!showQueue)}
-          className={cn(
-            "p-2 rounded-lg transition-colors",
-            showQueue ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
-          )}
-          title="Fila"
-        >
-          <ListMusic className="w-4 h-4" />
-        </button>
-
         <div className="flex items-center gap-1.5 group/vol">
           <button
             onClick={toggleMute}
