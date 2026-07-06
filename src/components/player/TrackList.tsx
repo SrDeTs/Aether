@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Play, Pause, Music, Disc3 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Equalizer } from "./Equalizer";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { usePlayer, formatTime, trackFromJellyfinItem } from "@/hooks/use-player";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -135,13 +136,6 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
             >
               <div className="flex-1 text-left min-w-0">
                 <div className="flex items-center gap-2">
-                  {isCurrentTrack && isPlaying && (
-                    <div className="flex items-end gap-[2px] h-3.5 shrink-0 pb-0.5">
-                      <span className="w-[2px] h-3 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-                      <span className="w-[2px] h-3.5 bg-primary rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-                      <span className="w-[2px] h-2.5 bg-primary rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
-                    </div>
-                  )}
                   <p className={cn(
                     "text-sm truncate leading-tight",
                     isCurrentTrack ? "text-primary font-medium" : "text-foreground"

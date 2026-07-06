@@ -221,12 +221,23 @@ input[type="range"] {
   appearance: none;
   background: transparent;
   cursor: pointer;
+  height: 20px;
+  width: 100%;
+}
+
+input[type="range"]:focus {
+  outline: none;
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
-  background: oklch(1 0 0 / 0.1);
-  border-radius: 2px;
+  background: oklch(1 0 0 / 0.16);
+  border-radius: 9999px;
+  transition: background 0.15s ease;
+}
+
+input[type="range"]:hover::-webkit-slider-runnable-track {
+  background: oklch(1 0 0 / 0.25);
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -235,29 +246,58 @@ input[type="range"]::-webkit-slider-thumb {
   height: 12px;
   width: 12px;
   border-radius: 50%;
-  background: oklch(0.68 0.18 300);
+  background: var(--primary);
   margin-top: -4px;
-  box-shadow: 0 0 8px oklch(0.68 0.18 300 / 0.4);
-  transition: transform 0.15s ease;
+  box-shadow: 0 0 10px var(--primary);
+  transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+  transform: scale(1.25);
 }
 
 input[type="range"]::-moz-range-track {
   height: 4px;
-  background: oklch(1 0 0 / 0.1);
-  border-radius: 2px;
+  background: oklch(1 0 0 / 0.16);
+  border-radius: 9999px;
+  transition: background 0.15s ease;
+}
+
+input[type="range"]:hover::-moz-range-track {
+  background: oklch(1 0 0 / 0.25);
 }
 
 input[type="range"]::-moz-range-thumb {
   height: 12px;
   width: 12px;
   border-radius: 50%;
-  background: oklch(0.68 0.18 300);
+  background: var(--primary);
   border: none;
-  box-shadow: 0 0 8px oklch(0.68 0.18 300 / 0.4);
+  box-shadow: 0 0 10px var(--primary);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.25);
+}
+
+/* Seek bar progress slider - hide thumb unless hovered */
+input[type="range"].slider-progress::-webkit-slider-thumb {
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+}
+
+.group:hover input[type="range"].slider-progress::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+input[type="range"].slider-progress::-moz-range-thumb {
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+}
+
+.group:hover input[type="range"].slider-progress::-moz-range-thumb {
+  opacity: 1;
 }
 
 /* Glassmorphic image loading shimmer */
@@ -276,3 +316,19 @@ input[type="range"]::-moz-range-thumb {
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
+
+/* Pure CSS Audio Equalizer */
+@keyframes css-equalizer {
+  0%, 100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.css-equalizer-bar {
+  transform-origin: bottom;
+  animation: css-equalizer 1s ease-in-out infinite;
+}
+

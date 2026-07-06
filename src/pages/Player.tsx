@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { motion } from "framer-motion";
-import { ArrowLeft, Disc3, Mic2, Music, ListMusic, Palette, Volume2, Info, Sparkles, Sliders, RotateCcw, Settings2, Search } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Disc3, Mic2, Music, ListMusic, Palette, Volume2, Info, Sparkles, Sliders, RotateCcw, Settings2, Search, Loader2, X } from "lucide-react";
 import iconWebp from "../../assets/icon.webp";
 import { jellyfinClient } from "@/lib/jellyfin";
 import { useJellyfin } from "@/hooks/use-jellyfin";
@@ -15,6 +15,7 @@ import AnimatedFoldGradient from "@/components/FoldGradient/AnimatedFoldGradient
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RubberBandSlider } from "@/components/ui/RubberBandSlider";
 import { cn } from "@/lib/utils";
 import type { JellyfinItem } from "@/lib/jellyfin";
 
@@ -81,8 +82,8 @@ function AlbumView({ albumId, onBack }: AlbumViewProps) {
           {albumImage ? (
             <img src={albumImage} alt={album?.Name || ""} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/40 to-indigo-900/40">
-              <Disc3 className="w-16 h-16 text-white/20" />
+            <div className="w-full h-full flex items-center justify-center bg-white/5 border border-white/[0.04]">
+              <Disc3 className="w-16 h-16 text-primary/30 animate-spin-slow" />
             </div>
           )}
         </div>
@@ -231,21 +232,30 @@ export default function Player() {
     if (!searchQuery && activeView !== "search") loadData();
   }, [activeView, selectedLibrary, connected, getAlbums, getArtists, getTracks, getRecentlyAdded]);
 
+  const [searchLoading, setSearchLoading] = useState(false);
+
   useEffect(() => {
     if (!connected || !searchQuery.trim()) {
       setSearchResults([]);
+      setSearchLoading(false);
       return;
     }
+    setSearchLoading(true);
     const timeout = setTimeout(async () => {
       try {
-        const result = await jellyfinSearch(searchQuery, { limit: 30 });
+        const result = await jellyfinSearch(searchQuery, { 
+          limit: 50,
+          parentId: selectedLibrary?.Id 
+        });
         setSearchResults(result.Items || []);
       } catch (err) {
         console.error("Busca falhou:", err);
+      } finally {
+        setSearchLoading(false);
       }
     }, 300);
     return () => clearTimeout(timeout);
-  }, [searchQuery, connected, jellyfinSearch]);
+  }, [searchQuery, connected, jellyfinSearch, selectedLibrary]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -276,6 +286,9 @@ export default function Player() {
   const searchTracks = useMemo(() =>
     searchResults.filter((i) => i.Type === "Audio"), [searchResults]
   );
+  const searchArtists = useMemo(() =>
+    searchResults.filter((i) => i.Type === "MusicArtist"), [searchResults]
+  );
 
   if (!connected) return null;
 
@@ -305,87 +318,157 @@ export default function Player() {
 
         <div className="flex-1 overflow-y-auto glass rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none">
           <div className="p-6 md:p-8 max-w-7xl mx-auto relative z-10">
-            {selectedAlbum ? (
-              <AlbumView albumId={selectedAlbum} onBack={() => setSelectedAlbum(null)} />
-            ) : (
-              <>
-                {(activeView === "tracks" || activeView === "search") && (
-                  <div className="mb-6 flex justify-end">
-                    <div className="relative w-full sm:w-72">
-                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                      <Input
-                        value={searchQuery}
-                        onChange={(e) => handleSearchChange(e.target.value)}
-                        placeholder="Buscar músicas..."
-                        className="pl-10 h-10 text-xs bg-white/[0.03] border-white/[0.06] rounded-xl focus-visible:ring-primary/20 placeholder:text-muted-foreground/40"
-                      />
-                    </div>
-                  </div>
-                )}
-                {activeView === "search" && searchQuery.trim() && (
-                  <div className="space-y-8">
-                    {searchAlbums.length > 0 && (
-                      <div>
-                        <h2 className="text-sm font-medium text-muted-foreground mb-3">Álbuns</h2>
-                        <AlbumGrid albums={searchAlbums} isLoading={false} onAlbumClick={handleAlbumClick} />
-                      </div>
-                    )}
-                    {searchTracks.length > 0 && (
-                      <div>
-                        <h2 className="text-sm font-medium text-muted-foreground mb-3">Músicas</h2>
-                        <TrackList tracks={searchTracks} isLoading={false} />
-                      </div>
-                    )}
-                    {searchResults.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-20 gap-3">
-                        <div className="glass-strong rounded-full p-5">
-                          <Music className="w-10 h-10 text-muted-foreground/30" />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedAlbum ? `album-${selectedAlbum}` : activeView}
+                initial={{ opacity: 0, scale: 0.97, y: 10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, scale: 0.97, y: -10, filter: "blur(4px)" }}
+                transition={{ type: "spring", stiffness: 300, damping: 28, mass: 0.8 }}
+                className="w-full"
+              >
+                {selectedAlbum ? (
+                  <AlbumView albumId={selectedAlbum} onBack={() => setSelectedAlbum(null)} />
+                ) : (
+                  <>
+                    {(activeView === "tracks" || activeView === "search") && (
+                      <div className="mb-6 flex justify-end">
+                        <div className="relative w-full sm:w-80">
+                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+                          <Input
+                            value={searchQuery}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            placeholder="Buscar músicas, álbuns ou artistas..."
+                            className="pl-10 pr-10 h-10 text-xs bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05] focus:bg-white/[0.06] rounded-xl focus-visible:ring-primary/20 placeholder:text-muted-foreground/30 transition-all duration-200"
+                          />
+                          {searchLoading ? (
+                            <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
+                          ) : searchQuery ? (
+                            <button
+                              onClick={() => handleSearchChange("")}
+                              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10 text-muted-foreground/50 hover:text-foreground transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          ) : null}
                         </div>
-                        <p className="text-muted-foreground">Nenhum resultado encontrado</p>
                       </div>
                     )}
-                  </div>
-                )}
+                    {activeView === "search" && searchQuery.trim() && (
+                      <div className="space-y-8">
+                        {searchLoading && searchResults.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                            <p className="text-xs text-muted-foreground/60 font-mono">Buscando no Jellyfin...</p>
+                          </div>
+                        ) : (
+                          <>
+                            {searchArtists.length > 0 && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3 font-mono">Artistas</h2>
+                                <div className="flex flex-wrap gap-3">
+                                  {searchArtists.map((artist) => (
+                                    <motion.button
+                                      key={artist.Id}
+                                      className="glass-strong rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] active:scale-95 transition-all text-left w-full sm:w-[220px]"
+                                      onClick={() => handleSearchChange(artist.Name)}
+                                    >
+                                      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/[0.04] shrink-0">
+                                        {getImageUrl(artist.Id, { height: 80, width: 80, quality: 80 }) ? (
+                                          <img src={getImageUrl(artist.Id, { height: 80, width: 80, quality: 80 })} alt={artist.Name} className="w-full h-full object-cover" />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                                            <Mic2 className="w-4 h-4 text-primary" />
+                                          </div>
+                                        )}
+                                      </div>
+                                      <p className="text-xs font-medium truncate flex-1">{artist.Name}</p>
+                                    </motion.button>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
 
-                {activeView === "albums" && (
-                  <AlbumGrid albums={albums} isLoading={loading} onAlbumClick={handleAlbumClick} />
-                )}
+                            {searchAlbums.length > 0 && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: 0.05 }}
+                              >
+                                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3 font-mono">Álbuns</h2>
+                                <AlbumGrid albums={searchAlbums} isLoading={false} onAlbumClick={handleAlbumClick} />
+                              </motion.div>
+                            )}
 
-                {activeView === "artists" && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {artists.map((artist) => (
-                      <motion.button
-                        key={artist.Id}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="glass-card rounded-xl overflow-hidden glass-card-hover text-center p-4 flex flex-col items-center gap-3 cursor-pointer"
-                        onClick={() => setSearchQuery(artist.Name)}
-                      >
-                        <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-purple-900/40 to-indigo-900/40">
-                          {getImageUrl(artist.Id, { height: 200, width: 200, quality: 90 }) ? (
-                            <img src={getImageUrl(artist.Id, { height: 200, width: 200, quality: 90 })} alt={artist.Name} className="w-full h-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center"><Mic2 className="w-8 h-8 text-white/20" /></div>
-                          )}
-                        </div>
-                        <p className="text-sm font-medium truncate max-w-[140px]">{artist.Name}</p>
-                      </motion.button>
-                    ))}
-                    {!loading && artists.length === 0 && (
-                      <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
-                        <div className="glass-strong rounded-full p-6"><Mic2 className="w-12 h-12 text-muted-foreground/50" /></div>
-                        <p className="text-muted-foreground text-lg">Nenhum artista encontrado</p>
+                            {searchTracks.length > 0 && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2, delay: 0.1 }}
+                              >
+                                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3 font-mono">Músicas</h2>
+                                <TrackList tracks={searchTracks} isLoading={false} />
+                              </motion.div>
+                            )}
+
+                            {!searchLoading && searchResults.length === 0 && (
+                              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                <div className="glass-strong rounded-full p-5">
+                                  <Music className="w-10 h-10 text-muted-foreground/30" />
+                                </div>
+                                <p className="text-sm text-muted-foreground">Nenhum resultado encontrado</p>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     )}
-                  </div>
+
+                    {activeView === "albums" && (
+                      <AlbumGrid albums={albums} isLoading={loading} onAlbumClick={handleAlbumClick} />
+                    )}
+
+                    {activeView === "artists" && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                        {artists.map((artist) => (
+                          <motion.button
+                            key={artist.Id}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="glass-card rounded-xl overflow-hidden glass-card-hover text-center p-4 flex flex-col items-center gap-3 cursor-pointer"
+                            onClick={() => setSearchQuery(artist.Name)}
+                          >
+                            <div className="w-24 h-24 rounded-full overflow-hidden bg-white/5 border border-white/[0.04]">
+                              {getImageUrl(artist.Id, { height: 200, width: 200, quality: 90 }) ? (
+                                <img src={getImageUrl(artist.Id, { height: 200, width: 200, quality: 90 })} alt={artist.Name} className="w-full h-full object-cover" loading="lazy" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center"><Mic2 className="w-8 h-8 text-primary/30" /></div>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium truncate max-w-[140px]">{artist.Name}</p>
+                          </motion.button>
+                        ))}
+                        {!loading && artists.length === 0 && (
+                          <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
+                            <div className="glass-strong rounded-full p-6"><Mic2 className="w-12 h-12 text-muted-foreground/50" /></div>
+                            <p className="text-muted-foreground text-lg">Nenhum artista encontrado</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {activeView === "tracks" && <TrackList tracks={tracks} isLoading={loading} />}
+                    {activeView === "recent" && <TrackList tracks={recentTracks} isLoading={loading} />}
+
+                    {activeView === "settings" && <SettingsView />}
+                  </>
                 )}
-
-                {activeView === "tracks" && <TrackList tracks={tracks} isLoading={loading} />}
-                {activeView === "recent" && <TrackList tracks={recentTracks} isLoading={loading} />}
-
-                {activeView === "settings" && <SettingsView />}
-              </>
-            )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -414,14 +497,13 @@ function RangeControl({ label, value, min, max, step = 0.1, onChange, unit = "" 
         <label className="text-xs text-muted-foreground">{label}</label>
         <span className="text-[10px] text-muted-foreground/60 font-mono tabular-nums">{value.toFixed(step >= 1 ? 0 : 1)}{unit}</span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1 appearance-none bg-white/[0.08] rounded-full cursor-pointer
-          [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-white/[0.08] [&::-webkit-slider-runnable-track]:rounded-full
-          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full
-          [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-primary/30
-          [&::-moz-range-track]:h-1 [&::-moz-range-track]:bg-white/[0.08] [&::-moz-range-track]:rounded-full
-          [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full
-          [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0" />
+      <RubberBandSlider
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={onChange}
+      />
     </div>
   );
 }
@@ -430,11 +512,10 @@ function SettingsView() {
   const { settings, activePreset, updateSettings, applyPreset, resetSettings } = useSettings();
   const { volume, setVolume } = usePlayer();
   const { userName, serverUrl, disconnect } = useJellyfin();
-  const [tab, setTab] = useState<"aparência" | "reprodução" | "sobre">("aparência");
+  const [tab, setTab] = useState<"aparência" | "sobre">("aparência");
 
   const tabs = [
     { id: "aparência" as const, label: "Aparência", icon: <Palette className="w-4 h-4" /> },
-    { id: "reprodução" as const, label: "Reprodução", icon: <Volume2 className="w-4 h-4" /> },
     { id: "sobre" as const, label: "Sobre", icon: <Info className="w-4 h-4" /> },
   ];
 
@@ -442,10 +523,28 @@ function SettingsView() {
     <div className="space-y-6 max-w-3xl">
       <div className="flex gap-2 flex-wrap">
         {tabs.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={cn("px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2",
-              tab === t.id ? "bg-primary/15 text-primary border border-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04] border border-transparent")}
-          >{t.icon}{t.label}</button>
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 relative",
+              tab === t.id
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+            )}
+          >
+            {tab === t.id && (
+              <motion.div
+                layoutId="activeSettingsTab"
+                className="absolute inset-0 bg-primary/15 border border-primary/20 rounded-xl"
+                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              />
+            )}
+            <span className="relative z-10 flex items-center gap-2">
+              {t.icon}
+              {t.label}
+            </span>
+          </button>
         ))}
       </div>
 
@@ -496,20 +595,20 @@ function SettingsView() {
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Resetar para padrão
             </Button>
           </div>
-        </div>
-      )}
 
-      {tab === "reprodução" && (
-        <div className="glass-strong rounded-2xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold flex items-center gap-2"><Volume2 className="w-4 h-4 text-primary" /> Áudio</h2>
-          <RangeControl label="Volume Padrão" value={volume} min={0} max={1} step={0.01} onChange={(v) => setVolume(v)} />
-          <Separator className="bg-white/[0.04]" />
-          <h2 className="text-sm font-semibold flex items-center gap-2"><Music className="w-4 h-4 text-primary" /> Jellyfin</h2>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <p><span className="text-foreground/60">Servidor:</span> {serverUrl}</p>
-            <p><span className="text-foreground/60">Usuário:</span> {userName}</p>
+          <div className="glass-strong rounded-2xl p-5 space-y-4">
+            <h2 className="text-sm font-semibold flex items-center gap-2"><Volume2 className="w-4 h-4 text-primary" /> Áudio</h2>
+            <RangeControl label="Volume Padrão" value={volume} min={0} max={1} step={0.01} onChange={(v) => setVolume(v)} />
           </div>
-          <Button onClick={disconnect} variant="destructive" size="sm" className="text-xs rounded-xl">Desconectar do Servidor</Button>
+
+          <div className="glass-strong rounded-2xl p-5 space-y-4">
+            <h2 className="text-sm font-semibold flex items-center gap-2"><Music className="w-4 h-4 text-primary" /> Jellyfin</h2>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <p><span className="text-foreground/60">Servidor:</span> {serverUrl}</p>
+              <p><span className="text-foreground/60">Usuário:</span> {userName}</p>
+            </div>
+            <Button onClick={disconnect} variant="destructive" size="sm" className="text-xs rounded-xl">Desconectar do Servidor</Button>
+          </div>
         </div>
       )}
 

@@ -12,6 +12,7 @@ import { useSettings, PRESETS, type FoldGradientSettings } from "@/hooks/use-set
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { RubberBandSlider } from "@/components/ui/RubberBandSlider";
 
 interface SettingsPanelProps {
   open: boolean;
@@ -96,20 +97,12 @@ function RangeControl({
           {value.toFixed(step >= 1 ? 0 : 1)}
         </span>
       </div>
-      <input
-        type="range"
+      <RubberBandSlider
         min={min}
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-1 appearance-none bg-white/[0.08] rounded-full cursor-pointer
-          [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-white/[0.08] [&::-webkit-slider-runnable-track]:rounded-full
-          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full
-          [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-primary/30
-          [&::-moz-range-track]:h-1 [&::-moz-range-track]:bg-white/[0.08] [&::-moz-range-track]:rounded-full
-          [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full
-          [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0"
+        onChange={onChange}
       />
     </div>
   );

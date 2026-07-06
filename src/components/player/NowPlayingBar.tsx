@@ -9,9 +9,10 @@ import {
   Disc3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Equalizer } from "./Equalizer";
 import { usePlayer, formatTime } from "@/hooks/use-player";
 import { useJellyfin } from "@/hooks/use-jellyfin";
-import { Slider } from "@/components/ui/slider";
+import { RubberBandSlider } from "@/components/ui/RubberBandSlider";
 
 export function NowPlayingBar() {
   const { getImageUrl } = useJellyfin();
@@ -48,16 +49,15 @@ export function NowPlayingBar() {
   return (
     <div className="h-20 glass rounded-2xl md:rounded-3xl border border-white/[0.04] flex items-center px-4 md:px-6 relative z-50 shadow-2xl shadow-black/40">
       <div className="flex items-center gap-3 w-72 min-w-0">
-        <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
-          {imageUrl ? (
-            <img src={imageUrl} alt={currentTrack.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Disc3 className="w-5 h-5 text-white/20" />
-            </div>
-          )}
+        <div className="w-12 h-12 rounded-xl shrink-0 bg-primary/10 border border-primary/20 flex items-center justify-center relative overflow-hidden">
+          <Equalizer
+            barsCount={5}
+            isPlaying={isPlaying}
+            className="h-6 gap-[3px]"
+            barClassName="w-[3px] bg-primary"
+          />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate text-foreground leading-tight">
             {currentTrack.name}
           </p>
@@ -107,25 +107,13 @@ export function NowPlayingBar() {
           <span className="text-[10px] text-muted-foreground/60 tabular-nums w-8 text-right">
             {formatTime(currentTime)}
           </span>
-          <div className="flex-1 relative group">
-            <input
-              type="range"
+          <div className="flex-1">
+            <RubberBandSlider
               min={0}
               max={duration || 100}
+              step={1}
               value={currentTime}
-              onChange={(e) => seek(parseFloat(e.target.value))}
-              className="w-full h-1 appearance-none bg-white/[0.08] rounded-full cursor-pointer
-                [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-white/[0.08] [&::-webkit-slider-runnable-track]:rounded-full
-                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full
-                [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-primary/30
-                [&::-webkit-slider-thumb]:opacity-0 [&::-webkit-slider-thumb]:group-hover:opacity-100 [&::-webkit-slider-thumb]:transition-opacity
-                [&::-moz-range-track]:h-1 [&::-moz-range-track]:bg-white/[0.08] [&::-moz-range-track]:rounded-full
-                [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full
-                [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0"
-            />
-            <div
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-primary/80 to-primary rounded-full pointer-events-none"
-              style={{ width: `${Math.min(progress, 100)}%` }}
+              onChange={(v) => seek(v)}
             />
           </div>
           <span className="text-[10px] text-muted-foreground/60 tabular-nums w-8">
@@ -146,17 +134,13 @@ export function NowPlayingBar() {
               <Volume2 className="w-4 h-4" />
             )}
           </button>
-          <input
-            type="range"
+          <RubberBandSlider
             min={0}
             max={1}
             step={0.01}
             value={isMuted ? 0 : volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="w-20 h-1 appearance-none bg-white/[0.08] rounded-full cursor-pointer
-              [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-white/[0.08] [&::-webkit-slider-runnable-track]:rounded-full
-              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full
-              [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg"
+            onChange={(v) => setVolume(v)}
+            className="w-20"
           />
         </div>
       </div>

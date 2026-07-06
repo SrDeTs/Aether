@@ -20,7 +20,7 @@ interface JellyfinContextType {
   getArtists: (options?: { parentId?: string; startIndex?: number; limit?: number }) => Promise<JellyfinItemsResponse>;
   getTracks: (options?: { parentId?: string; startIndex?: number; limit?: number; sortBy?: string }) => Promise<JellyfinItemsResponse>;
   getRecentlyAdded: (options?: { limit?: number; parentId?: string }) => Promise<JellyfinItemsResponse>;
-  search: (query: string, options?: { limit?: number }) => Promise<JellyfinItemsResponse>;
+  search: (query: string, options?: { limit?: number; parentId?: string }) => Promise<JellyfinItemsResponse>;
   getImageUrl: (itemId: string, options?: { height?: number; width?: number; quality?: number }) => string;
   getBackdropUrl: (itemId: string, options?: { height?: number; width?: number; quality?: number }) => string;
   getStreamUrl: (itemId: string, container?: string) => string;

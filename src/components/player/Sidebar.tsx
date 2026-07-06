@@ -59,16 +59,28 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
               key={item.id}
               onClick={() => onViewChange(item.id)}
               className={cn(
-                "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all duration-200",
+                "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-all duration-200 relative group",
                 collapsed && "justify-center px-0",
                 activeView === item.id
-                  ? "bg-primary/15 text-primary border border-primary/20"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04] border border-transparent"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
               )}
               title={collapsed ? item.label : undefined}
             >
-              {item.icon}
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {activeView === item.id && (
+                <motion.div
+                  layoutId="activeSidebarTab"
+                  className="absolute inset-0 bg-primary/15 border border-primary/20 rounded-lg"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
+              <span className={cn(
+                "relative z-10 flex items-center gap-2.5 w-full",
+                collapsed && "justify-center"
+              )}>
+                {item.icon}
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </span>
             </button>
           ))}
 
@@ -78,7 +90,7 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
       <div className={cn("border-t border-white/[0.04] p-3", collapsed && "px-2")}>
         <div className={cn("flex items-center gap-2.5", collapsed && "justify-center")}>
           <Avatar className="w-7 h-7 shrink-0">
-            <AvatarFallback className="text-[10px] bg-gradient-to-br from-purple-500/30 to-indigo-500/30 text-primary text-xs">
+            <AvatarFallback className="text-[10px] bg-primary/15 border border-primary/25 text-primary text-xs font-semibold">
               {userInitial}
             </AvatarFallback>
           </Avatar>

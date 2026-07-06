@@ -32,8 +32,8 @@ function AlbumCard({ album, onClick, imageUrl }: { album: JellyfinItem; onClick:
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/40 to-indigo-900/40">
-              <Disc3 className="w-16 h-16 text-white/20" />
+            <div className="w-full h-full flex items-center justify-center bg-white/5 border border-white/[0.04]">
+              <Disc3 className="w-16 h-16 text-primary/30 animate-spin-slow" />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
