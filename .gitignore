@@ -6,3 +6,4 @@ src-tauri/icons/
 *.log
 Exemplos/
 .env
+tsconfig.tsbuildinfo
