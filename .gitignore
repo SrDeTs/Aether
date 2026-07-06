@@ -7,3 +7,4 @@ src-tauri/icons/
 Exemplos/
 .env
 tsconfig.tsbuildinfo
+assets/
