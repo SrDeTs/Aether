@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Aether
+Comment=Jellyfin Player Music
+Exec=/usr/bin/Aether
+Icon=Aether
+Categories=Audio;Music;Player;
+Terminal=false

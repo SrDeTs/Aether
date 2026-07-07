@@ -1,4 +1,4 @@
-.PHONY: dev build lint check tauri-dev tauri-build tauri-build-win clean bench bench-decode bench-alloc bench-iai bench-all
+.PHONY: dev build lint check tauri-dev tauri-build tauri-build-win clean pkg bench bench-decode bench-alloc bench-iai bench-all
 
 dev:
 	npm run dev
@@ -44,7 +44,13 @@ tauri-build-win:
 clean:
 	rm -rf dist src-tauri/target node_modules && npm install
 
-# ─── Benchmarks locais ──────────────────────────────────────────────────────
+pkg:
+	cd arch-linux && BUILDDIR=/tmp/aether-build makepkg -C -f -c
+	@for f in arch-linux/Aether-*.pkg.tar.zst; do \
+	  base=$${f%.pkg.tar.zst}; \
+	  mv "$$f" "$$base.pacman"; \
+	done
+	@ls arch-linux/Aether-*.pacman
 
 bench:
 	cd src-tauri && cargo bench --bench decode_bench

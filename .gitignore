@@ -8,3 +8,6 @@ Exemplos/
 .env
 tsconfig.tsbuildinfo
 assets/
+pkg/
+*.zst
+pacotes/
