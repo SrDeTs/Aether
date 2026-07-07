@@ -161,15 +161,15 @@ export default function Player() {
     const glowPrimaryLit = isMono ? 85 : lit;
 
     const root = document.documentElement;
-    root.style.setProperty("--primary", `hsl(${h} ${sat}% ${lit}%)`);
-    root.style.setProperty("--primary-foreground", `hsl(${h} ${isMono ? 0 : Math.min(sat, 15)}% ${isMono ? 10 : 97}%)`);
-    root.style.setProperty("--ring", `hsl(${h} ${sat}% ${lit}% / 0.5)`);
-    root.style.setProperty("--chart-1", `hsl(${h} ${sat}% ${lit}%)`);
-    root.style.setProperty("--sidebar-primary", `hsl(${h} ${sidebarPrimarySat}% ${sidebarPrimaryLit}%)`);
-    root.style.setProperty("--sidebar-accent", `hsl(${h} ${sidebarAccentSat}% ${sidebarAccentLit}% / 0.4)`);
-    root.style.setProperty("--sidebar-ring", `hsl(${h} ${sat}% ${lit}% / 0.4)`);
-    root.style.setProperty("--glow-accent", `hsl(${h} ${glowAccentSat}% ${glowAccentLit}% / 0.12)`);
-    root.style.setProperty("--glow-primary", `hsl(${h} ${glowPrimarySat}% ${glowPrimaryLit}% / 0.2)`);
+    root.style.setProperty("--primary", `hsl(${h}, ${sat}%, ${lit}%)`);
+    root.style.setProperty("--primary-foreground", `hsl(${h}, ${isMono ? 0 : Math.min(sat, 15)}%, ${isMono ? 10 : 97}%)`);
+    root.style.setProperty("--ring", `hsla(${h}, ${sat}%, ${lit}%, 0.5)`);
+    root.style.setProperty("--chart-1", `hsl(${h}, ${sat}%, ${lit}%)`);
+    root.style.setProperty("--sidebar-primary", `hsl(${h}, ${sidebarPrimarySat}%, ${sidebarPrimaryLit}%)`);
+    root.style.setProperty("--sidebar-accent", `hsla(${h}, ${sidebarAccentSat}%, ${sidebarAccentLit}%, 0.4)`);
+    root.style.setProperty("--sidebar-ring", `hsla(${h}, ${sat}%, ${lit}%, 0.4)`);
+    root.style.setProperty("--glow-accent", `hsla(${h}, ${glowAccentSat}%, ${glowAccentLit}%, 0.12)`);
+    root.style.setProperty("--glow-primary", `hsla(${h}, ${glowPrimarySat}%, ${glowPrimaryLit}%, 0.2)`);
     return () => {
       ["--primary", "--primary-foreground", "--ring", "--chart-1",
        "--sidebar-primary", "--sidebar-accent", "--sidebar-ring",
@@ -591,31 +591,22 @@ function SettingsView() {
               <RangeControl label="Ribbon" value={settings.ribbon} min={0} max={1} step={0.05} onChange={(v) => updateSettings({ ribbon: v })} />
               <RangeControl label="Velocidade" value={settings.speed} min={0} max={3} step={0.1} onChange={(v) => updateSettings({ speed: v })} />
             </div>
-            <Button onClick={resetSettings} variant="ghost" size="sm" className="w-full mt-4 text-xs rounded-xl text-muted-foreground hover:text-foreground">
+            <Button
+              onClick={resetSettings}
+              variant="outline"
+              size="sm"
+              className="w-full mt-4 text-xs rounded-xl border-primary/20 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary transition-all duration-200"
+            >
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Resetar para padrão
             </Button>
-          </div>
-
-          <div className="glass-strong rounded-2xl p-5 space-y-4">
-            <h2 className="text-sm font-semibold flex items-center gap-2"><Volume2 className="w-4 h-4 text-primary" /> Áudio</h2>
-            <RangeControl label="Volume Padrão" value={volume} min={0} max={1} step={0.01} onChange={(v) => setVolume(v)} />
-          </div>
-
-          <div className="glass-strong rounded-2xl p-5 space-y-4">
-            <h2 className="text-sm font-semibold flex items-center gap-2"><Music className="w-4 h-4 text-primary" /> Jellyfin</h2>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p><span className="text-foreground/60">Servidor:</span> {serverUrl}</p>
-              <p><span className="text-foreground/60">Usuário:</span> {userName}</p>
-            </div>
-            <Button onClick={disconnect} variant="destructive" size="sm" className="text-xs rounded-xl">Desconectar do Servidor</Button>
           </div>
         </div>
       )}
 
       {tab === "sobre" && (
         <div className="glass-strong rounded-2xl p-5 space-y-4 text-center">
-          <img src={iconWebp} className="w-16 h-16 rounded-2xl mx-auto shadow-xl" alt="JellyMusic" />
-          <div><h2 className="text-lg font-bold">JellyMusic</h2><p className="text-xs text-muted-foreground">v1.0.0</p></div>
+          <img src={iconWebp} className="w-16 h-16 rounded-2xl mx-auto shadow-xl" alt="Aether" />
+          <div><h2 className="text-lg font-bold">Aether</h2><p className="text-xs text-muted-foreground">v1.0.0</p></div>
           <p className="text-xs text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
             Um reprodutor musical moderno para servidores Jellyfin.<br /> Com temas dinâmicos, efeitos glassmorphism e integração direta.
           </p>

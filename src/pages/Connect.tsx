@@ -12,11 +12,11 @@ export default function Connect() {
   const navigate = useNavigate();
   const { connectWithPassword, connectWithApiKey, isConnecting, error, connected } = useJellyfin();
 
-  const [serverUrl, setServerUrl] = useState("");
-  const [username, setUsername] = useState("");
+  const [serverUrl, setServerUrl] = useState(() => localStorage.getItem("saved_server_url") || "");
+  const [username, setUsername] = useState(() => localStorage.getItem("saved_username") || "");
   const [password, setPassword] = useState("");
-  const [apiKeyServerUrl, setApiKeyServerUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const [apiKeyServerUrl, setApiKeyServerUrl] = useState(() => localStorage.getItem("saved_apikey_server_url") || "");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("saved_apikey") || "");
   const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -38,6 +38,8 @@ export default function Connect() {
     }
     try {
       await connectWithPassword(serverUrl.trim(), username.trim(), password);
+      localStorage.setItem("saved_server_url", serverUrl.trim());
+      localStorage.setItem("saved_username", username.trim());
       setSuccess(true);
       setTimeout(() => navigate("/player"), 500);
     } catch (err) {
@@ -54,6 +56,8 @@ export default function Connect() {
     }
     try {
       await connectWithApiKey(apiKeyServerUrl.trim(), apiKey.trim());
+      localStorage.setItem("saved_apikey_server_url", apiKeyServerUrl.trim());
+      localStorage.setItem("saved_apikey", apiKey.trim());
       setSuccess(true);
       setTimeout(() => navigate("/player"), 500);
     } catch (err) {
@@ -77,8 +81,8 @@ export default function Connect() {
         className="w-full max-w-md relative z-10"
       >
         <div className="flex flex-col items-center mb-6">
-          <img src={iconWebp} className="w-14 h-14 rounded-2xl shadow-xl mb-3 object-cover" alt="JellyMusic" />
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">JellyMusic</h1>
+          <img src={iconWebp} className="w-34 h-34 rounded-3xl shadow-2xl mb-4 object-cover" alt="Aether" />
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Aether</h1>
         </div>
 
         <div className="glass rounded-2xl md:rounded-3xl p-6 md:p-8 border border-white/[0.04] shadow-2xl shadow-black/40">

@@ -62,9 +62,9 @@ export interface JellyfinView {
   ImageTags?: { Primary?: string };
 }
 
-const CLIENT_NAME = "CodebuffPlayer";
+const CLIENT_NAME = "AetherPlayer";
 const DEVICE_NAME = "Browser";
-const DEVICE_ID = "codebuff-player-web";
+const DEVICE_ID = "aether-player-web";
 const CLIENT_VERSION = "1.0.0";
 
 function buildAuthHeader(token: string): string {

@@ -231,6 +231,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (activePreset) {
       localStorage.setItem("foldgradient_active_preset", activePreset);
+      localStorage.setItem("foldgradient_last_applied_preset", activePreset);
     } else {
       localStorage.removeItem("foldgradient_active_preset");
     }
@@ -250,8 +251,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resetSettings = useCallback(() => {
-    setSettings(DEFAULT_SETTINGS);
-    setActivePreset(null);
+    const lastPresetId = localStorage.getItem("foldgradient_last_applied_preset") || "raycast";
+    const preset = PRESETS.find((p) => p.id === lastPresetId);
+    if (preset) {
+      setSettings(preset.settings);
+      setActivePreset(lastPresetId);
+    } else {
+      setSettings(DEFAULT_SETTINGS);
+      setActivePreset(null);
+    }
   }, []);
 
   return (

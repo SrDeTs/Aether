@@ -10,7 +10,6 @@ import { PlayerProvider } from "@/hooks/use-player";
 import { SettingsProvider } from "@/hooks/use-settings";
 
 // Lazy load route components for better code splitting
-const Landing = lazy(() => import("./pages/Landing.tsx"));
 const ConnectPage = lazy(() => import("./pages/Connect.tsx"));
 const PlayerPage = lazy(() => import("./pages/Player.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -60,7 +59,7 @@ createRoot(document.getElementById("root")!).render(
             <PlayerProvider>
               <SettingsProvider>
                 <Routes>
-                  <Route path="/" element={<Landing />} />
+                  <Route path="/" element={<ConnectPage />} />
                   <Route path="/connect" element={<ConnectPage />} />
                   <Route path="/player" element={<PlayerPage />} />
                   <Route path="*" element={<NotFound />} />
