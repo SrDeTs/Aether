@@ -11,3 +11,6 @@ assets/
 pkg/
 *.zst
 pacotes/
+build-dir/
+repo/
+.flatpak-builder/

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Aether
+Comment=Jellyfin Player Music
+Exec=Aether
+Icon=com.aether.app
+Categories=Audio;Music;Player;
+Terminal=false
