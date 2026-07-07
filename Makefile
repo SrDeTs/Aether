@@ -23,23 +23,24 @@ tauri-build-win:
 	@echo ""
 	@echo "[1/3] Verificando dependências..."
 	@command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1 || { echo "Erro: mingw-w64 não instalado. Instale com:"; echo "  sudo pacman -S mingw-w64-gcc"; exit 1; }
-	@command -v makensis >/dev/null 2>&1 || { echo "Erro: NSIS não instalado. Instale com:"; echo "  yay -S nsis      # AUR"; echo "  # ou: paru -S nsis"; exit 1; }
 	@rustup target list --installed | grep -q x86_64-pc-windows-gnu || rustup target add x86_64-pc-windows-gnu
 	@echo "✔ Dependências OK"
 	@echo ""
-	@echo "[2/3] Build do backend Rust + bundle para Windows (NSIS)..."
-	@echo "  Alvo: x86_64-pc-windows-gnu"
-	@echo "  Saída esperada: src-tauri/target/x86_64-pc-windows-gnu/release/bundle/nsis/"
+	@echo "[2/3] Compilando para Windows..."
+	npm run tauri build -- --no-bundle --target x86_64-pc-windows-gnu
+	$(eval VER = $(shell grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*"version": "\(.*\)",/\1/'))
 	@echo ""
-	@grep -q '"active": true' src-tauri/tauri.conf.json 2>/dev/null || echo "⚠  Aviso: bundle.active = false em tauri.conf.json — o Tauri não vai gerar o instalador .exe."
-	@grep -q '"active": true' src-tauri/tauri.conf.json 2>/dev/null || echo "⚠  Para gerar o instalador, edite tauri.conf.json e defina \"bundle\".\"active\": true"
-	@echo ""
-	npm run tauri -- build --target x86_64-pc-windows-gnu
-	@echo ""
-	@echo "[3/3] Build concluído!"
-	@ls -lh src-tauri/target/x86_64-pc-windows-gnu/release/bundle/nsis/*.exe 2>/dev/null || echo "Nenhum .exe encontrado — veja se bundle.active = true em tauri.conf.json"
-	@echo ""
-	@echo "Dica: Para builds reproduzíveis, use GitHub Actions com windows-latest."
+	@echo "[3/3] Empacotando .zip..."
+	cd src-tauri/target/x86_64-pc-windows-gnu/release && \
+	  7z a -tzip "$$OLDPWD/Aether-$(VER)-windows-x86_64-portable.zip" \
+	    Aether.exe WebView2Loader.dll 2>/dev/null || \
+	  zip "$$OLDPWD/Aether-$(VER)-windows-x86_64-portable.zip" \
+	    Aether.exe WebView2Loader.dll 2>/dev/null || \
+	  echo "⚠  WebView2Loader.dll não encontrada — zip apenas com Aether.exe"
+	@ls -lh Aether-*.zip 2>/dev/null
+	mkdir -p pacotes
+	mv Aether-*.zip pacotes/ 2>/dev/null || true
+	@ls -lh pacotes/Aether-*.zip 2>/dev/null
 
 tauri-deb:
 	npm run tauri build -- --bundles deb
