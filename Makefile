@@ -1,4 +1,4 @@
-.PHONY: dev build lint check tauri-dev tauri-build tauri-build-win clean pkg bench bench-decode bench-alloc bench-iai bench-all
+.PHONY: dev build lint check tauri-dev tauri-build tauri-deb tauri-rpm tauri-appimage tauri-all tauri-build-win clean pkg bench bench-decode bench-alloc bench-iai bench-all
 
 dev:
 	npm run dev
@@ -41,8 +41,34 @@ tauri-build-win:
 	@echo ""
 	@echo "Dica: Para builds reproduzíveis, use GitHub Actions com windows-latest."
 
+tauri-deb:
+	npm run tauri build -- --bundles deb
+	mkdir -p pacotes
+	mv src-tauri/target/release/bundle/deb/*.deb pacotes/ 2>/dev/null || true
+	@ls -lh pacotes/*.deb 2>/dev/null
+
+tauri-rpm:
+	npm run tauri build -- --bundles rpm
+	mkdir -p pacotes
+	mv src-tauri/target/release/bundle/rpm/*.rpm pacotes/ 2>/dev/null || true
+	@ls -lh pacotes/*.rpm 2>/dev/null
+
+tauri-appimage:
+	npm run tauri build -- --bundles appimage
+	mkdir -p pacotes
+	mv src-tauri/target/release/bundle/appimage/*.AppImage pacotes/ 2>/dev/null || true
+	@ls -lh pacotes/*.AppImage 2>/dev/null
+
+tauri-all:
+	npm run tauri build -- --bundles deb,rpm,appimage
+	mkdir -p pacotes
+	mv src-tauri/target/release/bundle/deb/*.deb pacotes/ 2>/dev/null || true
+	mv src-tauri/target/release/bundle/rpm/*.rpm pacotes/ 2>/dev/null || true
+	mv src-tauri/target/release/bundle/appimage/*.AppImage pacotes/ 2>/dev/null || true
+	@ls -lh pacotes/
+
 clean:
-	rm -rf dist src-tauri/target node_modules && npm install
+	rm -rf dist src-tauri/target node_modules pacotes && npm install
 
 pkg:
 	cd arch-linux && BUILDDIR=/tmp/aether-build makepkg -C -f -c
@@ -50,7 +76,9 @@ pkg:
 	  base=$${f%.pkg.tar.zst}; \
 	  mv "$$f" "$$base.pacman"; \
 	done
-	@ls arch-linux/Aether-*.pacman
+	mkdir -p pacotes
+	mv arch-linux/Aether-*.pacman pacotes/ 2>/dev/null || true
+	@ls -lh pacotes/Aether-*.pacman
 
 bench:
 	cd src-tauri && cargo bench --bench decode_bench
