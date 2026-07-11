@@ -130,6 +130,30 @@ export function JellyfinProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("jellyfin_selected_library");
   }, []);
 
+  useEffect(() => {
+    jellyfinClient.onUnauthorized = () => {
+      localStorage.setItem("connection_error", "Sua sessão expirou ou a chave de API é inválida. Por favor, conecte-se novamente.");
+      disconnect();
+    };
+    return () => {
+      jellyfinClient.onUnauthorized = undefined;
+    };
+  }, [disconnect]);
+
+  // Keep device active in Jellyfin server by posting capabilities on connect and periodically
+  useEffect(() => {
+    if (connected) {
+      // First registration
+      jellyfinClient.postCapabilities();
+
+      const interval = setInterval(() => {
+        jellyfinClient.postCapabilities();
+      }, 3 * 60 * 1000); // every 3 minutes
+
+      return () => clearInterval(interval);
+    }
+  }, [connected]);
+
   const selectLibrary = useCallback((library: JellyfinView | null) => {
     setSelectedLibrary(library);
     if (library) {

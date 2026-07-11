@@ -73,6 +73,7 @@ function buildAuthHeader(token: string): string {
 
 export class JellyfinClient {
   private config: JellyfinConfig | null = null;
+  public onUnauthorized?: () => void;
 
   constructor() {
     // Try to restore from localStorage
@@ -131,6 +132,9 @@ export class JellyfinClient {
 
     const response = await fetch(url, { ...options, headers });
     if (!response.ok) {
+      if (response.status === 401) {
+        this.onUnauthorized?.();
+      }
       const text = await response.text().catch(() => "Unknown error");
       throw new Error(`Jellyfin API error (${response.status}): ${text}`);
     }
@@ -422,6 +426,87 @@ export class JellyfinClient {
       limit: options?.limit || 30,
       parentId: options?.parentId,
     });
+  }
+
+  // --- Session & Playback Reporting ---
+
+  async postCapabilities(): Promise<void> {
+    if (!this.config) return;
+    try {
+      await this.request("/Sessions/Capabilities", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          PlayableMediaTypes: ["Audio"],
+          SupportedCommands: [
+            "Play", "Pause", "Stop", "Seek", "VolumeUp", "VolumeDown", "Mute", "Unmute"
+          ],
+          SupportsMediaControl: true,
+          SupportsPersistentIdentifier: true
+        })
+      });
+    } catch (err) {
+      console.error("Failed to report capabilities to Jellyfin:", err);
+    }
+  }
+
+  async reportPlaybackStart(itemId: string, positionTicks: number = 0): Promise<void> {
+    if (!this.config) return;
+    try {
+      await this.request("/Sessions/Playing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ItemId: itemId,
+          CanSeek: true,
+          PositionTicks: Math.floor(positionTicks),
+        })
+      });
+    } catch (err) {
+      console.error("Failed to report playback start to Jellyfin:", err);
+    }
+  }
+
+  async reportPlaybackProgress(itemId: string, positionTicks: number, isPaused: boolean): Promise<void> {
+    if (!this.config) return;
+    try {
+      await this.request("/Sessions/Playing/Progress", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ItemId: itemId,
+          IsPaused: isPaused,
+          IsMuted: false,
+          PositionTicks: Math.floor(positionTicks),
+        })
+      });
+    } catch (err) {
+      console.error("Failed to report playback progress to Jellyfin:", err);
+    }
+  }
+
+  async reportPlaybackStopped(itemId: string, positionTicks: number): Promise<void> {
+    if (!this.config) return;
+    try {
+      await this.request("/Sessions/Playing/Stopped", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ItemId: itemId,
+          PositionTicks: Math.floor(positionTicks),
+        })
+      });
+    } catch (err) {
+      console.error("Failed to report playback stopped to Jellyfin:", err);
+    }
   }
 }
 

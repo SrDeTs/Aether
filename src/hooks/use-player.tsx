@@ -264,6 +264,72 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setQueueState(tracks);
   }, []);
 
+  // Playback reporting to Jellyfin
+  const lastTrackIdRef = useRef<string | null>(null);
+  const lastReportedTimeRef = useRef<number>(0);
+  const lastProgressReportTimeRef = useRef<number>(0);
+  const lastIsPlayingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!currentTrack) {
+      // If we had a track playing and now we don't, report stopped
+      if (lastTrackIdRef.current) {
+        jellyfinClient.reportPlaybackStopped(
+          lastTrackIdRef.current,
+          lastReportedTimeRef.current * 10000000
+        );
+        lastTrackIdRef.current = null;
+      }
+      return;
+    }
+
+    const trackId = currentTrack.id;
+    const ticks = currentTime * 10000000;
+
+    // Track changed!
+    if (lastTrackIdRef.current !== trackId) {
+      // Report stop for the previous track
+      if (lastTrackIdRef.current) {
+        jellyfinClient.reportPlaybackStopped(
+          lastTrackIdRef.current,
+          lastReportedTimeRef.current * 10000000
+        );
+      }
+      
+      // Report start for the new track
+      jellyfinClient.reportPlaybackStart(trackId, ticks);
+      lastTrackIdRef.current = trackId;
+      lastReportedTimeRef.current = currentTime;
+      lastIsPlayingRef.current = isPlaying;
+      lastProgressReportTimeRef.current = Date.now();
+      return;
+    }
+
+    lastReportedTimeRef.current = currentTime;
+
+    const now = Date.now();
+    const timeSinceLastReport = now - lastProgressReportTimeRef.current;
+    const playStateChanged = lastIsPlayingRef.current !== isPlaying;
+
+    // Report progress if state changed or 8 seconds passed
+    if (playStateChanged || timeSinceLastReport >= 8000) {
+      jellyfinClient.reportPlaybackProgress(trackId, ticks, !isPlaying);
+      lastIsPlayingRef.current = isPlaying;
+      lastProgressReportTimeRef.current = now;
+    }
+  }, [currentTrack, currentTime, isPlaying]);
+
+  useEffect(() => {
+    return () => {
+      if (lastTrackIdRef.current) {
+        jellyfinClient.reportPlaybackStopped(
+          lastTrackIdRef.current,
+          lastReportedTimeRef.current * 10000000
+        );
+      }
+    };
+  }, []);
+
   return (
     <PlayerContext.Provider
       value={{

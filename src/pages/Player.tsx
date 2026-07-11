@@ -694,4 +694,3 @@ function SettingsView() {
     </div>
   );
 }
-
