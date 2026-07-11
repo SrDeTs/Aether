@@ -101,30 +101,3 @@ flatpak:
 	mkdir -p pacotes
 	mv Aether.flatpak pacotes/Aether-$(VER).flatpak 2>/dev/null || true
 	@ls -lh pacotes/Aether-*.flatpak 2>/dev/null
-
-bench:
-	cd src-tauri && cargo bench --bench decode_bench
-
-bench-alloc:
-	cd src-tauri && cargo bench --bench allocation_bench
-
-bench-iai:
-	@echo "=== IAI-Callgrind (contagem de instruções) ==="
-	@command -v valgrind >/dev/null 2>&1 || { echo "❌ Valgrind não encontrado. Instale com: sudo pacman -S valgrind"; exit 1; }
-	cd src-tauri && cargo bench --bench iai_bench
-
-bench-vins:
-	cd src-tauri && cargo run --bin vins-cli -- bench
-
-bench-all:
-	@echo "=== 1/4: Timing (Divan) ==="
-	cd src-tauri && cargo bench --bench decode_bench
-	@echo ""
-	@echo "=== 2/4: Alocações (dhat) ==="
-	cd src-tauri && cargo bench --bench allocation_bench
-	@echo ""
-	@echo "=== 3/4: Instruções (IAI-Callgrind) ==="
-	@command -v valgrind >/dev/null 2>&1 && cd src-tauri && cargo bench --bench iai_bench || echo "⚠  Pulado (Valgrind não instalado)"
-	@echo ""
-	@echo "=== 4/4: Validação CLI ==="
-	cd src-tauri && cargo run --bin vins-cli -- bench
