@@ -683,7 +683,7 @@ function SettingsView() {
       {tab === "sobre" && (
         <div className="glass-strong rounded-2xl p-5 space-y-4 text-center">
           <img src={iconWebp} className="w-16 h-16 rounded-2xl mx-auto shadow-xl" alt="Aether" />
-          <div><h2 className="text-lg font-bold">Aether</h2><p className="text-xs text-muted-foreground">v1.0.0</p></div>
+          <div><h2 className="text-lg font-bold">Aether</h2><p className="text-xs text-muted-foreground">v0.0.1</p></div>
           <p className="text-xs text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
             Um reprodutor musical moderno para servidores Jellyfin.<br /> Com temas dinâmicos, efeitos glassmorphism e integração direta.
           </p>
