@@ -59,6 +59,7 @@ export interface CylinderCarouselProps {
   /** Auto-roll speed in items per second. */
   autoRotateSpeed?: number;
   defaultIndex?: number;
+  selectedIndex?: number;
   onIndexChange?: (index: number) => void;
   /** Stage height in px. Defaults to `itemSize`. */
   height?: number;
@@ -93,6 +94,7 @@ function CarouselBall({
   halfWidth,
   itemSize,
   children,
+  onBallClick,
 }: {
   scroll: MotionValue<number>;
   index: number;
@@ -114,6 +116,7 @@ function CarouselBall({
   halfWidth: number;
   itemSize: number;
   children: ReactNode;
+  onBallClick?: (idx: number) => void;
 }) {
   // Nearest wrapped offset so items loop around continuously.
   const offset = useTransform(scroll, (s) => {
@@ -166,6 +169,7 @@ function CarouselBall({
         marginLeft: -itemSize / 2,
         marginTop: -itemSize / 2,
       }}
+      onClick={() => onBallClick?.(index)}
     >
       {children}
     </motion.div>
@@ -184,6 +188,7 @@ export function CylinderCarousel({
   autoRotate = false,
   autoRotateSpeed = 0.4,
   defaultIndex = 0,
+  selectedIndex,
   onIndexChange,
   height,
   className,
@@ -239,7 +244,7 @@ export function CylinderCarousel({
   // pointer velocity to a soft spring so the roll glides on and settles free.
   const scroll = useMotionValue(defaultIndex);
   const indexRef = useRef(defaultIndex);
-  const [, setActiveIndex] = useState(defaultIndex);
+  const [activeIndex, setActiveIndex] = useState(defaultIndex);
   const glideRef = useRef<AnimationPlaybackControls | null>(null);
   const draggingRef = useRef(false);
   const hoverRef = useRef(false);
@@ -284,6 +289,25 @@ export function CylinderCarousel({
     },
     [scroll, stopGlide, reduce],
   );
+
+  // Listen to external selectedIndex changes and smoothly glide to it
+  useEffect(() => {
+    if (selectedIndex !== undefined && selectedIndex >= 0 && selectedIndex < count) {
+      const s = scroll.get();
+      let diff = selectedIndex - s;
+      diff = diff - Math.round(diff / count) * count;
+      if (Math.abs(diff) > 0.01) {
+        glideTo(s + diff, 0);
+      }
+    }
+  }, [selectedIndex, count, scroll, glideTo]);
+
+  const onBallClick = useCallback((idx: number) => {
+    const s = scroll.get();
+    let diff = idx - s;
+    diff = diff - Math.round(diff / count) * count;
+    glideTo(s + diff, 0);
+  }, [scroll, count, glideTo]);
 
   const settle = useCallback(
     (velocity: number) => {
@@ -394,8 +418,12 @@ export function CylinderCarousel({
   );
 
   const wheelSettleRef = useRef<number | undefined>(undefined);
-  const onWheel = useCallback(
-    (e: ReactWheelEvent) => {
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
       stopGlide();
       const delta =
         Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
@@ -405,9 +433,14 @@ export function CylinderCarousel({
         () => settle(scroll.getVelocity()),
         140,
       );
-    },
-    [scroll, gap, settle, stopGlide],
-  );
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+      if (wheelSettleRef.current) window.clearTimeout(wheelSettleRef.current);
+    };
+  }, [scroll, gap, settle, stopGlide]);
 
   useEffect(() => {
     if (!autoRotate || reduce || count === 0) return;
@@ -454,7 +487,6 @@ export function CylinderCarousel({
             wasDraggingRef.current = false;
           }
         }}
-        onWheel={onWheel}
         onPointerEnter={() => {
           hoverRef.current = true;
         }}
@@ -470,27 +502,37 @@ export function CylinderCarousel({
         )}
         style={{ height: stageHeight }}
       >
-        {items.map((item, i) => (
-          <CarouselBall
-            // biome-ignore lint/suspicious/noArrayIndexKey: slides are positional and stable
-            key={i}
-            scroll={scroll}
-            index={i}
-            count={count}
-            alpha={alpha}
-            k={k}
-            projection={projection}
-            gap={gap}
-            edgeOffset={edgeOffset}
-            minScale={minScale}
-            convex={convex}
-            arc={arc}
-            halfWidth={halfWidth}
-            itemSize={size}
-          >
-            {item}
-          </CarouselBall>
-        ))}
+        {items.map((item, i) => {
+          let diff = Math.abs(i - activeIndex);
+          if (count > 0) {
+            diff = Math.min(diff, count - diff);
+          }
+          const isVisible = count <= visibleItems + 4 || diff <= Math.ceil(visibleItems / 2) + 2;
+          if (!isVisible) return null;
+
+          return (
+            <CarouselBall
+              // biome-ignore lint/suspicious/noArrayIndexKey: slides are positional and stable
+              key={i}
+              scroll={scroll}
+              index={i}
+              count={count}
+              alpha={alpha}
+              k={k}
+              projection={projection}
+              gap={gap}
+              edgeOffset={edgeOffset}
+              minScale={minScale}
+              convex={convex}
+              arc={arc}
+              halfWidth={halfWidth}
+              itemSize={size}
+              onBallClick={onBallClick}
+            >
+              {item}
+            </CarouselBall>
+          );
+        })}
       </div>
     </>
   );

@@ -58,7 +58,7 @@ export default function Player() {
     getImageUrl,
     selectLibrary,
   } = useJellyfin();
-  const { playQueue } = usePlayer();
+  const { playQueue, currentTrack } = usePlayer();
   const { settings: fgSettings } = useSettings();
 
   // Dynamic theme: derive accent colors from the fold gradient palette
@@ -119,6 +119,36 @@ export default function Player() {
   const [recentTracks, setRecentTracks] = useState<JellyfinItem[]>([]);
   const [searchResults, setSearchResults] = useState<JellyfinItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const sortedTracks = useMemo(() => {
+    const cleanForSort = (str: string) => {
+      if (!str) return "";
+      return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/^[^a-z0-9]+/, "")
+        .trim();
+    };
+
+    return [...tracks].sort((a, b) => {
+      const nameA = a.Name || "";
+      const nameB = b.Name || "";
+      const cleanA = cleanForSort(nameA);
+      const cleanB = cleanForSort(nameB);
+      
+      if (cleanA && cleanB) {
+        return cleanA.localeCompare(cleanB, "pt-BR");
+      }
+      return nameA.toLowerCase().localeCompare(nameB.toLowerCase(), "pt-BR");
+    });
+  }, [tracks]);
+
+  const currentTrackIndex = useMemo(() => {
+    if (!currentTrack) return undefined;
+    const idx = sortedTracks.findIndex((t) => t.Id === currentTrack.id);
+    return idx !== -1 ? idx : undefined;
+  }, [sortedTracks, currentTrack]);
 
   useEffect(() => {
     if (!connected) navigate("/connect", { replace: true });
@@ -234,7 +264,7 @@ export default function Player() {
           onViewChange={handleViewChange}
         />
 
-        <div className="flex-1 overflow-y-auto glass rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden glass rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none">
           <div className="p-6 md:p-8 max-w-7xl mx-auto relative z-10">
             <AnimatePresence mode="wait">
               <motion.div
@@ -434,69 +464,47 @@ export default function Player() {
                               visibleItems={3}
                               height={400}
                               className="w-full"
+                              selectedIndex={currentTrackIndex}
+                              defaultIndex={currentTrackIndex ?? 0}
                             >
-                              {(() => {
-                                const cleanForSort = (str: string) => {
-                                  if (!str) return "";
-                                  return str
-                                    .normalize("NFD")
-                                    .replace(/[\u0300-\u036f]/g, "")
-                                    .toLowerCase()
-                                    .replace(/^[^a-z0-9]+/, "")
-                                    .trim();
+                              {sortedTracks.map((trackItem, index) => {
+                                const coverUrl = getImageUrl(trackItem.AlbumId || trackItem.Id, { height: 300, width: 300, quality: 90 });
+                                const artist = trackItem.AlbumArtist || trackItem.Artists?.[0] || trackItem.ArtistItems?.[0]?.Name || "Artista Desconhecido";
+
+                                const handlePlayClick = () => {
+                                  const mappedTracks = sortedTracks.map((item) => {
+                                    const img = getImageUrl(item.AlbumId || item.Id, { height: 60, width: 60, quality: 90 });
+                                    return trackFromJellyfinItem(item, img);
+                                  });
+                                  playQueue(mappedTracks, index);
                                 };
 
-                                const sorted = [...tracks].sort((a, b) => {
-                                  const nameA = a.Name || "";
-                                  const nameB = b.Name || "";
-                                  const cleanA = cleanForSort(nameA);
-                                  const cleanB = cleanForSort(nameB);
-                                  
-                                  if (cleanA && cleanB) {
-                                    return cleanA.localeCompare(cleanB, "pt-BR");
-                                  }
-                                  return nameA.toLowerCase().localeCompare(nameB.toLowerCase(), "pt-BR");
-                                });
-
-                                return sorted.map((trackItem, index) => {
-                                  const coverUrl = getImageUrl(trackItem.AlbumId || trackItem.Id, { height: 300, width: 300, quality: 90 });
-                                  const artist = trackItem.AlbumArtist || trackItem.Artists?.[0] || trackItem.ArtistItems?.[0]?.Name || "Artista Desconhecido";
-
-                                  const handlePlayClick = () => {
-                                    const mappedTracks = sorted.map((item) => {
-                                      const img = getImageUrl(item.AlbumId || item.Id, { height: 60, width: 60, quality: 90 });
-                                      return trackFromJellyfinItem(item, img);
-                                    });
-                                    playQueue(mappedTracks, index);
-                                  };
-
-                                  return (
-                                    <div
-                                      key={trackItem.Id}
-                                      onClick={handlePlayClick}
-                                      className="w-full h-full aspect-square rounded-2xl overflow-hidden glass-card cursor-pointer border border-white/[0.06] shadow-2xl group relative select-none"
-                                    >
-                                      {coverUrl ? (
-                                        <CachedImage
-                                          src={coverUrl}
-                                          cacheKey={trackItem.AlbumId || trackItem.Id}
-                                          alt={trackItem.Name}
-                                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
-                                          referrerPolicy="no-referrer"
-                                        />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-white/5">
-                                          <Music className="w-16 h-16 text-primary/30" />
-                                        </div>
-                                      )}
-                                      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 text-left">
-                                        <p className="text-xs font-semibold text-white truncate leading-snug">{trackItem.Name}</p>
-                                        <p className="text-[10px] text-white/70 truncate mt-0.5 leading-none">{artist}</p>
+                                return (
+                                  <div
+                                    key={trackItem.Id}
+                                    onClick={handlePlayClick}
+                                    className="w-full h-full aspect-square rounded-2xl overflow-hidden glass-card cursor-pointer border border-white/[0.06] shadow-2xl group relative select-none"
+                                  >
+                                    {coverUrl ? (
+                                      <CachedImage
+                                        src={coverUrl}
+                                        cacheKey={trackItem.AlbumId || trackItem.Id}
+                                        alt={trackItem.Name}
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                        <Music className="w-16 h-16 text-primary/30" />
                                       </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 text-left">
+                                      <p className="text-xs font-semibold text-white truncate leading-snug">{trackItem.Name}</p>
+                                      <p className="text-[10px] text-white/70 truncate mt-0.5 leading-none">{artist}</p>
                                     </div>
-                                  );
-                                });
-                              })()}
+                                  </div>
+                                );
+                              })}
                             </CylinderCarousel>
                           </motion.div>
                         )}

@@ -154,6 +154,10 @@ body::after {
   box-shadow:
     0 1px 0 0 oklch(1 0 0 / 0.05) inset,
     0 8px 32px oklch(0 0 0 / 0.3);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform, backdrop-filter;
 }
 
 @utility glass-strong {
@@ -164,6 +168,10 @@ body::after {
   box-shadow:
     0 1px 0 0 oklch(1 0 0 / 0.06) inset,
     0 8px 40px oklch(0 0 0 / 0.4);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform, backdrop-filter;
 }
 
 @utility glass-card {
@@ -176,6 +184,10 @@ body::after {
     0 1px 0 0 oklch(1 0 0 / 0.08) inset,
     0 4px 24px oklch(0 0 0 / 0.2);
   transition: all 0.3s ease;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform, backdrop-filter;
 }
 
 @utility glass-card-hover {
@@ -194,6 +206,13 @@ body::after {
   box-shadow:
     0 0 20px var(--glow-accent, oklch(0.68 0.18 300 / 0.15)),
     0 0 40px var(--glow-primary, oklch(0.68 0.18 300 / 0.05));
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Custom scrollbar for the glassmorphic look */

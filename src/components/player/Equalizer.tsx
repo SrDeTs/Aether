@@ -36,8 +36,8 @@ export function Equalizer({
           <span
             key={i}
             className={cn(
-              "w-[2px] h-full bg-primary rounded-full css-equalizer-bar",
-              !isPlaying && "animate-none scale-y-[0.25]",
+              "w-[2px] h-full bg-primary rounded-full",
+              isPlaying ? "css-equalizer-bar" : "scale-y-[0.25]",
               barClassName
             )}
             style={{
