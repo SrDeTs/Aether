@@ -309,10 +309,12 @@ export function CylinderCarousel({
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent) => {
-      e.preventDefault();
       stopGlide();
-      draggingRef.current = true;
-      e.currentTarget.setPointerCapture(e.pointerId);
+      isPointerDownRef.current = true;
+      pointerIdRef.current = e.pointerId;
+      draggingRef.current = false;
+      wasDraggingRef.current = false;
+      
       const now = performance.now();
       drag.current = {
         startX: e.clientX,
@@ -328,8 +330,26 @@ export function CylinderCarousel({
 
   const onPointerMove = useCallback(
     (e: ReactPointerEvent) => {
-      if (!draggingRef.current) return;
+      if (!isPointerDownRef.current) return;
       const d = drag.current;
+      
+      if (!draggingRef.current) {
+        const moveDist = Math.abs(e.clientX - d.startX);
+        if (moveDist > 6) {
+          draggingRef.current = true;
+          wasDraggingRef.current = true;
+          if (pointerIdRef.current !== null) {
+            try {
+              e.currentTarget.setPointerCapture(pointerIdRef.current);
+            } catch (err) {
+              console.warn("setPointerCapture error:", err);
+            }
+          }
+        }
+      }
+
+      if (!draggingRef.current) return;
+      
       scroll.set(d.startScroll - ((e.clientX - d.startX) * dragSpeed) / gap);
       d.prevX = d.lastX;
       d.prevT = d.lastT;
@@ -341,11 +361,23 @@ export function CylinderCarousel({
 
   const onPointerUp = useCallback(
     (e: ReactPointerEvent) => {
-      if (!draggingRef.current) return;
+      isPointerDownRef.current = false;
+      pointerIdRef.current = null;
+      
+      if (!draggingRef.current) {
+        // Simple click, let the natural click events bubble to the children
+        return;
+      }
+      
       draggingRef.current = false;
       if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch (err) {
+          console.warn("releasePointerCapture error:", err);
+        }
       }
+      
       const d = drag.current;
       const dt = d.lastT - d.prevT;
       const vpx = dt > 0 ? (d.lastX - d.prevX) / dt : 0; // px per ms
@@ -415,6 +447,13 @@ export function CylinderCarousel({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onClickCapture={(e) => {
+          if (wasDraggingRef.current) {
+            e.stopPropagation();
+            e.preventDefault();
+            wasDraggingRef.current = false;
+          }
+        }}
         onWheel={onWheel}
         onPointerEnter={() => {
           hoverRef.current = true;
