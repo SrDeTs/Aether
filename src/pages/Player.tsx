@@ -13,6 +13,7 @@ import { NowPlayingBar } from "@/components/player/NowPlayingBar";
 import { CachedImage } from "@/components/player/CachedImage";
 import { CylinderCarousel } from "@/components/ui/cylinder-carousel";
 import AnimatedFoldGradient from "@/components/FoldGradient/AnimatedFoldGradient";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
 
 export default function Player() {
   const navigate = useNavigate();
+  useKeyboardShortcuts();
   const {
     connected,
     musicLibraries,
@@ -109,6 +111,34 @@ export default function Player() {
     () => (localStorage.getItem("track_layout") as "list" | "carousel") || "list"
   );
   const [carouselVariant, setCarouselVariant] = useState<"concave" | "convex">("convex");
+
+  const [carouselHeight, setCarouselHeight] = useState(400);
+  const [carouselItemSize, setCarouselItemSize] = useState(300);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const h = window.innerHeight;
+      if (h < 650) {
+        setCarouselHeight(260);
+        setCarouselItemSize(180);
+      } else if (h < 750) {
+        setCarouselHeight(320);
+        setCarouselItemSize(220);
+      } else if (h < 850) {
+        setCarouselHeight(380);
+        setCarouselItemSize(260);
+      } else if (h < 1000) {
+        setCarouselHeight(420);
+        setCarouselItemSize(290);
+      } else {
+        setCarouselHeight(480);
+        setCarouselItemSize(320);
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("track_layout", trackLayout);
@@ -264,8 +294,8 @@ export default function Player() {
           onViewChange={handleViewChange}
         />
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden glass rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none">
-          <div className="p-6 md:p-8 max-w-7xl mx-auto relative z-10">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden glass rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none flex flex-col">
+          <div className={cn("p-6 md:p-8 max-w-7xl mx-auto relative z-10 w-full flex-1 flex flex-col", activeView === "tracks" && trackLayout === "carousel" && "min-h-full justify-center")}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeView}
@@ -273,7 +303,7 @@ export default function Player() {
                 animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
                 exit={{ opacity: 0, scale: 0.97, y: -10, filter: "blur(4px)" }}
                 transition={{ type: "spring", stiffness: 300, damping: 28, mass: 0.8 }}
-                className="w-full"
+                className={cn("w-full flex-1 flex flex-col", activeView === "tracks" && trackLayout === "carousel" && "min-h-full justify-center")}
               >
                 <>
                   {(activeView === "tracks" || activeView === "search") && (
@@ -396,7 +426,7 @@ export default function Player() {
                     )}
 
                     {activeView === "tracks" && (
-                      <div className="space-y-6">
+                      <div className={cn("space-y-6 flex flex-col flex-1", trackLayout === "carousel" && "min-h-full justify-center")}>
                         <div className="flex items-center justify-end gap-4 pb-4">
                           <div className="flex items-center gap-2">
                             <Button
@@ -452,7 +482,7 @@ export default function Player() {
                           <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="w-full py-4 relative flex flex-col items-center justify-center"
+                            className="w-full py-4 relative flex-1 flex flex-col items-center justify-center"
                             style={{
                               WebkitMaskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)",
                               maskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)"
@@ -460,9 +490,9 @@ export default function Player() {
                           >
                             <CylinderCarousel
                               variant={carouselVariant}
-                              itemSize={300}
+                              itemSize={carouselItemSize}
                               visibleItems={3}
-                              height={400}
+                              height={carouselHeight}
                               className="w-full"
                               selectedIndex={currentTrackIndex}
                               defaultIndex={currentTrackIndex ?? 0}
@@ -664,3 +694,4 @@ function SettingsView() {
     </div>
   );
 }
+
