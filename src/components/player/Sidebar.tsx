@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Music,
@@ -6,13 +6,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings2,
+  Disc3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-type ViewType = "albums" | "artists" | "tracks" | "recent" | "search" | "settings";
+type ViewType = "artists" | "tracks" | "recent" | "search" | "settings";
 
 interface SidebarProps {
   activeView: ViewType;
@@ -26,7 +27,14 @@ const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
 
 export function Sidebar({ activeView, onViewChange }: SidebarProps) {
   const { userName, disconnect } = useJellyfin();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    const stored = localStorage.getItem("sidebar_collapsed");
+    return stored === "true";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sidebar_collapsed", String(collapsed));
+  }, [collapsed]);
 
   const userInitial = userName?.charAt(0)?.toUpperCase() || "J";
 
