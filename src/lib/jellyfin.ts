@@ -127,6 +127,7 @@ export class JellyfinClient {
     path: string,
     options: RequestInit = {},
     useApiKey: boolean = false,
+    suppressUnauthorized: boolean = false,
   ): Promise<T> {
     if (!this.config) throw new Error("Not connected to Jellyfin server");
 
@@ -145,7 +146,7 @@ export class JellyfinClient {
 
     const response = await fetch(url, { ...options, headers });
     if (!response.ok) {
-      if (response.status === 401) {
+      if (response.status === 401 && !suppressUnauthorized) {
         this.onUnauthorized?.();
       }
       const text = await response.text().catch(() => "Unknown error");
@@ -482,7 +483,7 @@ export class JellyfinClient {
           SupportsMediaControl: true,
           SupportsPersistentIdentifier: true
         })
-      });
+      }, false, true);
     } catch (err) {
       console.error("Failed to report capabilities to Jellyfin:", err);
     }
@@ -501,7 +502,7 @@ export class JellyfinClient {
           CanSeek: true,
           PositionTicks: Math.floor(positionTicks),
         })
-      });
+      }, false, true);
     } catch (err) {
       console.error("Failed to report playback start to Jellyfin:", err);
     }
@@ -521,7 +522,7 @@ export class JellyfinClient {
           IsMuted: false,
           PositionTicks: Math.floor(positionTicks),
         })
-      });
+      }, false, true);
     } catch (err) {
       console.error("Failed to report playback progress to Jellyfin:", err);
     }
@@ -539,7 +540,7 @@ export class JellyfinClient {
           ItemId: itemId,
           PositionTicks: Math.floor(positionTicks),
         })
-      });
+      }, false, true);
     } catch (err) {
       console.error("Failed to report playback stopped to Jellyfin:", err);
     }
