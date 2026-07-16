@@ -37,6 +37,23 @@ interface PlayerContextType {
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
   setQueue: (tracks: TrackInfo[]) => void;
+  
+  // Equalizer & Audio FX
+  eqEnabled: boolean;
+  setEqEnabled: (enabled: boolean) => void;
+  eqPreamp: number;
+  setEqPreamp: (gain: number) => void;
+  eqGains: number[];
+  setEqGain: (bandIndex: number, gain: number) => void;
+  eqBassBoost: number;
+  setEqBassBoost: (val: number) => void;
+  eqVocalBoost: number;
+  setEqVocalBoost: (val: number) => void;
+  eqReverb: number;
+  setEqReverb: (val: number) => void;
+  eqPreset: string;
+  applyEqPreset: (presetId: string) => void;
+  getAnalyserData: () => { analyser: AnalyserNode | null; sampleRate: number };
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -83,6 +100,146 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const currentIndexRef = useRef(-1);
 
+  // Equalizer & Audio FX States
+  const [eqEnabled, setEqEnabledState] = useState(() => {
+    const saved = localStorage.getItem("player_eq_enabled");
+    return saved === "true";
+  });
+  const [eqPreamp, setEqPreampState] = useState(() => {
+    const saved = localStorage.getItem("player_eq_preamp");
+    return saved ? parseFloat(saved) : 0;
+  });
+  const [eqGains, setEqGainsState] = useState<number[]>(() => {
+    const saved = localStorage.getItem("player_eq_gains");
+    return saved ? JSON.parse(saved) : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  });
+  const [eqBassBoost, setEqBassBoostState] = useState(() => {
+    const saved = localStorage.getItem("player_eq_bass_boost");
+    return saved ? parseFloat(saved) : 0;
+  });
+  const [eqVocalBoost, setEqVocalBoostState] = useState(() => {
+    const saved = localStorage.getItem("player_eq_vocal_boost");
+    return saved ? parseFloat(saved) : 0;
+  });
+  const [eqReverb, setEqReverbState] = useState(() => {
+    const saved = localStorage.getItem("player_eq_reverb");
+    return saved ? parseFloat(saved) : 0;
+  });
+  const [eqPreset, setEqPresetState] = useState(() => {
+    const saved = localStorage.getItem("player_eq_preset");
+    return saved || "Flat";
+  });
+
+  // Web Audio API Refs
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const preAmpGainNodeRef = useRef<GainNode | null>(null);
+  const filterNodesRef = useRef<BiquadFilterNode[]>([]);
+  const bassBoostFilterRef = useRef<BiquadFilterNode | null>(null);
+  const vocalBoostFilterRef = useRef<BiquadFilterNode | null>(null);
+  const delayNodeRef = useRef<DelayNode | null>(null);
+  const delayGainNodeRef = useRef<GainNode | null>(null);
+
+  // Web Audio Equalizer graph initialization
+  const initAudioContext = useCallback(() => {
+    if (audioContextRef.current || !audioRef.current) return;
+
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContextClass();
+      audioContextRef.current = ctx;
+
+      // 1. Create source
+      const source = ctx.createMediaElementSource(audioRef.current);
+      sourceNodeRef.current = source;
+
+      // 2. Pre-amp gain node
+      const preAmp = ctx.createGain();
+      // eqPreamp is in dB. linear = 10^(db/20)
+      const initialPreampDb = eqEnabled ? eqPreamp : 0;
+      preAmp.gain.value = Math.pow(10, initialPreampDb / 20);
+      preAmpGainNodeRef.current = preAmp;
+
+      // 3. 10 Equalizer band filters (Standard ISO bands)
+      const freqs = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+      const filters = freqs.map((freq, idx) => {
+        const filter = ctx.createBiquadFilter();
+        filter.type = "peaking";
+        filter.frequency.value = freq;
+        filter.Q.value = 1.0; // Q = 1.0 represents roughly one octave bandwidth
+        filter.gain.value = eqEnabled ? (eqGains[idx] ?? 0) : 0;
+        return filter;
+      });
+      filterNodesRef.current = filters;
+
+      // 4. Bass Boost shelf filter
+      const bassFilter = ctx.createBiquadFilter();
+      bassFilter.type = "lowshelf";
+      bassFilter.frequency.value = 100;
+      bassFilter.gain.value = eqEnabled ? eqBassBoost : 0;
+      bassBoostFilterRef.current = bassFilter;
+
+      // 5. Vocal Boost (High-mid peaking filter)
+      const vocalFilter = ctx.createBiquadFilter();
+      vocalFilter.type = "peaking";
+      vocalFilter.frequency.value = 3000;
+      vocalFilter.Q.value = 0.8;
+      vocalFilter.gain.value = eqEnabled ? eqVocalBoost : 0;
+      vocalBoostFilterRef.current = vocalFilter;
+
+      // 6. 3D Reverb / Spatialization (Feedback delay loop)
+      const delay = ctx.createDelay(1.0);
+      delay.delayTime.value = 0.15; // 150ms delay
+      delayNodeRef.current = delay;
+
+      const delayFeedback = ctx.createGain();
+      delayFeedback.gain.value = 0.4; // feedback decay
+
+      const delayMix = ctx.createGain();
+      const wet = eqEnabled ? (eqReverb / 100) * 0.7 : 0;
+      delayMix.gain.value = wet;
+      delayGainNodeRef.current = delayMix;
+
+      // Wire up delay feedback: delay -> delayFeedback -> delay
+      delay.connect(delayFeedback);
+      delayFeedback.connect(delay);
+
+      // 7. Analyser node for the dynamic visualizer
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+
+      // Connect in series:
+      // source -> preAmp -> bassFilter -> vocalFilter -> filters[0..9] -> output & analyser
+      let lastNode: AudioNode = source;
+      lastNode.connect(preAmp);
+      lastNode = preAmp;
+
+      lastNode.connect(bassFilter);
+      lastNode = bassFilter;
+
+      lastNode.connect(vocalFilter);
+      lastNode = vocalFilter;
+
+      for (const filter of filters) {
+        lastNode.connect(filter);
+        lastNode = filter;
+      }
+
+      // Reverb path: lastNode -> delay -> delayMix -> destination
+      lastNode.connect(delay);
+      delay.connect(delayMix);
+      delayMix.connect(ctx.destination);
+
+      // Direct dry path: lastNode -> analyser -> destination
+      lastNode.connect(analyser);
+      analyser.connect(ctx.destination);
+    } catch (err) {
+      console.error("Failed to initialize Web Audio Equalizer:", err);
+    }
+  }, [eqEnabled, eqPreamp, eqGains, eqBassBoost, eqVocalBoost, eqReverb]);
+
   // Refs to hold latest values for event listeners (avoids stale closures)
   const queueRef = useRef<TrackInfo[]>([]);
   const playTrackRef = useRef<(index: number, tracks: TrackInfo[]) => void>(() => {});
@@ -105,6 +262,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setError(null);
     setIsLoading(true);
 
+    // Initialize Web Audio API if needed and resume
+    if (!audioContextRef.current) {
+      initAudioContext();
+    }
+    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume().catch((err) => console.error("Could not resume AudioContext:", err));
+    }
+
     // Try direct stream first, fall back to transcoded
     audio.src = streamUrl;
     audio.play().catch(() => {
@@ -124,6 +289,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const audio = new Audio();
     audio.preload = "auto";
+    audio.crossOrigin = "anonymous";
     audioRef.current = audio;
 
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
@@ -200,9 +366,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const resume = useCallback(() => {
     const audio = audioRef.current;
     if (audio && currentTrack) {
+      if (!audioContextRef.current) {
+        initAudioContext();
+      }
+      if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume().catch((err) => console.error("Could not resume AudioContext:", err));
+      }
       audio.play().catch((e) => setError("Failed to resume: " + e.message));
     }
-  }, [currentTrack]);
+  }, [currentTrack, initAudioContext]);
 
   const togglePlay = useCallback(() => {
     if (isPlaying) pause();
@@ -262,6 +434,136 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const setQueue = useCallback((tracks: TrackInfo[]) => {
     setQueueState(tracks);
+  }, []);
+
+  // --- Equalizer & Audio FX Callbacks & Effects ---
+  
+  // Apply Eq / Preamp / Boosts / Reverb whenever they change or when AudioContext is initialized
+  useEffect(() => {
+    if (!audioContextRef.current) return;
+
+    const ctx = audioContextRef.current;
+
+    // 1. Preamp
+    if (preAmpGainNodeRef.current) {
+      const db = eqEnabled ? eqPreamp : 0;
+      preAmpGainNodeRef.current.gain.setTargetAtTime(Math.pow(10, db / 20), ctx.currentTime, 0.01);
+    }
+
+    // 2. 10 Bands
+    filterNodesRef.current.forEach((filter, idx) => {
+      const db = eqEnabled ? (eqGains[idx] ?? 0) : 0;
+      filter.gain.setTargetAtTime(db, ctx.currentTime, 0.01);
+    });
+
+    // 3. Bass Boost
+    if (bassBoostFilterRef.current) {
+      const db = eqEnabled ? eqBassBoost : 0;
+      bassBoostFilterRef.current.gain.setTargetAtTime(db, ctx.currentTime, 0.01);
+    }
+
+    // 4. Vocal Boost
+    if (vocalBoostFilterRef.current) {
+      const db = eqEnabled ? eqVocalBoost : 0;
+      vocalBoostFilterRef.current.gain.setTargetAtTime(db, ctx.currentTime, 0.01);
+    }
+
+    // 5. Reverb
+    if (delayGainNodeRef.current) {
+      const wet = eqEnabled ? (eqReverb / 100) * 0.7 : 0;
+      delayGainNodeRef.current.gain.setTargetAtTime(wet, ctx.currentTime, 0.01);
+    }
+  }, [eqEnabled, eqPreamp, eqGains, eqBassBoost, eqVocalBoost, eqReverb]);
+
+  // Persist Equalizer parameters
+  useEffect(() => {
+    localStorage.setItem("player_eq_enabled", String(eqEnabled));
+  }, [eqEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("player_eq_preamp", String(eqPreamp));
+  }, [eqPreamp]);
+
+  useEffect(() => {
+    localStorage.setItem("player_eq_gains", JSON.stringify(eqGains));
+  }, [eqGains]);
+
+  useEffect(() => {
+    localStorage.setItem("player_eq_bass_boost", String(eqBassBoost));
+  }, [eqBassBoost]);
+
+  useEffect(() => {
+    localStorage.setItem("player_eq_vocal_boost", String(eqVocalBoost));
+  }, [eqVocalBoost]);
+
+  useEffect(() => {
+    localStorage.setItem("player_eq_reverb", String(eqReverb));
+  }, [eqReverb]);
+
+  useEffect(() => {
+    localStorage.setItem("player_eq_preset", eqPreset);
+  }, [eqPreset]);
+
+  // Action setters
+  const setEqEnabled = useCallback((enabled: boolean) => {
+    setEqEnabledState(enabled);
+  }, []);
+
+  const setEqPreamp = useCallback((val: number) => {
+    setEqPreampState(val);
+    setEqPresetState("Personalizado");
+  }, []);
+
+  const setEqGain = useCallback((bandIndex: number, val: number) => {
+    setEqGainsState((prev) => {
+      const next = [...prev];
+      next[bandIndex] = val;
+      return next;
+    });
+    setEqPresetState("Personalizado");
+  }, []);
+
+  const setEqBassBoost = useCallback((val: number) => {
+    setEqBassBoostState(val);
+    setEqPresetState("Personalizado");
+  }, []);
+
+  const setEqVocalBoost = useCallback((val: number) => {
+    setEqVocalBoostState(val);
+    setEqPresetState("Personalizado");
+  }, []);
+
+  const setEqReverb = useCallback((val: number) => {
+    setEqReverbState(val);
+    setEqPresetState("Personalizado");
+  }, []);
+
+  const applyEqPreset = useCallback((presetName: string) => {
+    setEqPresetState(presetName);
+    const presets: Record<string, number[]> = {
+      "Flat": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "Bass Booster": [6, 5, 4, 2, 0, 0, 0, 0, 0, 0],
+      "Bass Reducer": [-6, -5, -4, -2, 0, 0, 0, 0, 0, 0],
+      "Treble Booster": [0, 0, 0, 0, 0, 1, 2, 4, 5, 6],
+      "Treble Reducer": [0, 0, 0, 0, 0, -1, -2, -4, -5, -6],
+      "Pop": [-2, -1, 0, 2, 4, 4, 2, 0, -1, -2],
+      "Rock": [4, 3, 2, -1, -2, -1, 2, 3, 4, 5],
+      "Jazz": [3, 2, 1, 2, -1, -1, 0, 1, 2, 3],
+      "Classical": [3, 2, 2, 2, 0, 0, -1, -1, 1, 3],
+      "Dance": [5, 4, 1, 0, -2, 2, 1, 1, 4, 5],
+      "Vocal Booster": [-3, -2, -1, 1, 3, 4, 4, 3, 1, -1]
+    };
+    const gains = presets[presetName];
+    if (gains) {
+      setEqGainsState(gains);
+    }
+  }, []);
+
+  const getAnalyserData = useCallback(() => {
+    return {
+      analyser: analyserRef.current,
+      sampleRate: audioContextRef.current?.sampleRate || 44100
+    };
   }, []);
 
   // Playback reporting to Jellyfin
@@ -356,6 +658,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         removeFromQueue,
         clearQueue,
         setQueue,
+        eqEnabled,
+        setEqEnabled,
+        eqPreamp,
+        setEqPreamp,
+        eqGains,
+        setEqGain,
+        eqBassBoost,
+        setEqBassBoost,
+        eqVocalBoost,
+        setEqVocalBoost,
+        eqReverb,
+        setEqReverb,
+        eqPreset,
+        applyEqPreset,
+        getAnalyserData,
       }}
     >
       {children}

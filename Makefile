@@ -1,22 +1,22 @@
 .PHONY: dev build lint check tauri-dev tauri-build tauri-deb tauri-rpm tauri-appimage tauri-all tauri-build-win clean pkg flatpak bench bench-decode bench-alloc bench-iai bench-all
 
 dev:
-	npm run dev
+	bun run dev
 
 build:
-	npm run build
+	bun run build
 
 lint:
-	npm run lint
+	bun run lint
 	
 check:
 	cd src-tauri && cargo check
 
 tauri-dev:
-	npm run tauri dev
+	bun run tauri dev
 
 tauri-build:
-	npm run tauri build
+	bun run tauri build
 
 tauri-build-win:
 	@echo "=== Build para Windows (cross-compilation Linux → Windows) ==="
@@ -27,7 +27,7 @@ tauri-build-win:
 	@echo "✔ Dependências OK"
 	@echo ""
 	@echo "[2/3] Compilando para Windows..."
-	npm run tauri build -- --no-bundle --target x86_64-pc-windows-gnu
+	bun run tauri build -- --no-bundle --target x86_64-pc-windows-gnu
 	$(eval VER = $(shell grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*"version": "\(.*\)",/\1/'))
 	@echo ""
 	@echo "[3/3] Empacotando .zip..."
@@ -43,19 +43,19 @@ tauri-build-win:
 	@ls -lh pacotes/Aether-*.zip 2>/dev/null
 
 tauri-deb:
-	npm run tauri build -- --bundles deb
+	bun run tauri build -- --bundles deb
 	mkdir -p pacotes
 	mv src-tauri/target/release/bundle/deb/*.deb pacotes/ 2>/dev/null || true
 	@ls -lh pacotes/*.deb 2>/dev/null
 
 tauri-rpm:
-	npm run tauri build -- --bundles rpm
+	bun run tauri build -- --bundles rpm
 	mkdir -p pacotes
 	mv src-tauri/target/release/bundle/rpm/*.rpm pacotes/ 2>/dev/null || true
 	@ls -lh pacotes/*.rpm 2>/dev/null
 
 tauri-appimage:
-	-npm run tauri build -- --bundles appimage
+	-bun run tauri build -- --bundles appimage
 	APPIMAGE_EXTRACT_AND_RUN=1 $$HOME/.cache/tauri/linuxdeploy-plugin-appimage.AppImage \
 	  --appdir src-tauri/target/release/bundle/appimage/Aether.AppDir
 	$(eval VER = $(shell grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*"version": "\(.*\)",/\1/'))
@@ -64,8 +64,8 @@ tauri-appimage:
 	@ls -lh pacotes/Aether-*.AppImage 2>/dev/null
 
 tauri-all:
-	npm run tauri build -- --bundles deb,rpm
-	-npm run tauri build -- --bundles appimage
+	bun run tauri build -- --bundles deb,rpm
+	-bun run tauri build -- --bundles appimage
 	APPIMAGE_EXTRACT_AND_RUN=1 $$HOME/.cache/tauri/linuxdeploy-plugin-appimage.AppImage \
 	  --appdir src-tauri/target/release/bundle/appimage/Aether.AppDir
 	$(eval VER = $(shell grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*"version": "\(.*\)",/\1/'))
@@ -76,7 +76,7 @@ tauri-all:
 	@ls -lh pacotes/
 
 clean:
-	rm -rf dist src-tauri/target node_modules pacotes flatpak/build-dir flatpak/repo && npm install
+	rm -rf dist src-tauri/target node_modules pacotes flatpak/build-dir flatpak/repo && bun install
 
 pkg:
 	cd arch-linux && BUILDDIR=/tmp/aether-build makepkg -C -f -c
@@ -93,7 +93,7 @@ flatpak:
 	@command -v flatpak >/dev/null 2>&1 || { echo "❌ flatpak não encontrado"; exit 1; }
 	@flatpak info org.freedesktop.Platform//25.08 >/dev/null 2>&1 || { echo "❌ Runtime org.freedesktop.Platform//25.08 não instalado. Instale com: flatpak install flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08"; exit 1; }
 	@flatpak info org.freedesktop.Sdk//25.08 >/dev/null 2>&1 || { echo "❌ SDK org.freedesktop.Sdk//25.08 não instalado"; exit 1; }
-	ls src-tauri/target/release/Aether >/dev/null 2>&1 || npm run tauri build -- --no-bundle
+	ls src-tauri/target/release/Aether >/dev/null 2>&1 || bun run tauri build -- --no-bundle
 	cd flatpak && flatpak-builder --force-clean build-dir com.aether.app.yml
 	flatpak build-export flatpak/repo flatpak/build-dir
 	flatpak build-bundle flatpak/repo Aether.flatpak com.aether.app

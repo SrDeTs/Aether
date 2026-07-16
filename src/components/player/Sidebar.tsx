@@ -7,13 +7,14 @@ import {
   ChevronRight,
   Settings2,
   Disc3,
+  Sliders,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-type ViewType = "artists" | "tracks" | "recent" | "search" | "settings";
+type ViewType = "artists" | "tracks" | "recent" | "search" | "settings" | "equalizer";
 
 interface SidebarProps {
   activeView: ViewType;
@@ -22,11 +23,12 @@ interface SidebarProps {
 
 const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: "tracks", label: "Músicas", icon: <Music className="w-4 h-4" /> },
+  { id: "equalizer", label: "Equalizador", icon: <Sliders className="w-4 h-4" /> },
   { id: "settings", label: "Configurações", icon: <Settings2 className="w-4 h-4" /> },
 ];
 
 export function Sidebar({ activeView, onViewChange }: SidebarProps) {
-  const { userName, disconnect } = useJellyfin();
+  const { userName, disconnect, getUserImageUrl } = useJellyfin();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebar_collapsed");
     return stored === "true";
@@ -98,6 +100,7 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
       <div className={cn("border-t border-white/[0.04] p-3", collapsed && "px-2")}>
         <div className={cn("flex items-center gap-2.5", collapsed && "justify-center")}>
           <Avatar className="w-7 h-7 shrink-0">
+            <AvatarImage src={getUserImageUrl()} alt={userName} className="object-cover" />
             <AvatarFallback className="text-[10px] bg-primary/15 border border-primary/25 text-primary text-xs font-semibold">
               {userInitial}
             </AvatarFallback>

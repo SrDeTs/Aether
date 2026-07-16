@@ -105,6 +105,19 @@ export class JellyfinClient {
     return this.config;
   }
 
+  getProxyUrl(url: string, params?: { stream?: boolean; image?: boolean }): string {
+    const isHttpsPage = typeof window !== "undefined" && window.location.protocol === "https:";
+    const isTargetHttp = url.startsWith("http://");
+
+    if (isTargetHttp || isHttpsPage) {
+      const q = new URLSearchParams({ url });
+      if (params?.stream) q.set("stream", "true");
+      if (params?.image) q.set("image", "true");
+      return `/api/jellyfin-proxy?${q.toString()}`;
+    }
+    return url;
+  }
+
   private get baseUrl(): string {
     if (!this.config) return "";
     return `${this.config.serverUrl.replace(/\/+$/, "")}`;
@@ -117,7 +130,7 @@ export class JellyfinClient {
   ): Promise<T> {
     if (!this.config) throw new Error("Not connected to Jellyfin server");
 
-    const url = `${this.baseUrl}${path}`;
+    const url = this.getProxyUrl(`${this.baseUrl}${path}`);
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
     };
@@ -138,7 +151,14 @@ export class JellyfinClient {
       const text = await response.text().catch(() => "Unknown error");
       throw new Error(`Jellyfin API error (${response.status}): ${text}`);
     }
-    return response.json();
+    if (response.status === 204) {
+      return {} as T;
+    }
+    const text = await response.text();
+    if (!text || text.trim() === "") {
+      return {} as T;
+    }
+    return JSON.parse(text) as T;
   }
 
   private imageUrl(itemId: string, imageType: string, options?: { fillHeight?: number; fillWidth?: number; quality?: number }): string {
@@ -150,7 +170,7 @@ export class JellyfinClient {
     if (options?.quality) params.set("quality", String(options.quality));
     const qs = params.toString();
     if (qs) url += "?" + qs;
-    return url;
+    return this.getProxyUrl(url, { image: true });
   }
 
   getImageUrl(itemId: string, options?: { height?: number; width?: number; quality?: number }): string {
@@ -161,6 +181,14 @@ export class JellyfinClient {
     return this.imageUrl(itemId, "Backdrop", options ? { fillHeight: options.height, fillWidth: options.width, quality: options.quality } : undefined);
   }
 
+  getUserImageUrl(userId?: string): string {
+    if (!this.config) return "";
+    const id = userId || this.config.userId;
+    if (!id) return "";
+    const url = `${this.baseUrl}/Users/${id}/Images/Primary?api_key=${this.config.token}`;
+    return this.getProxyUrl(url, { image: true });
+  }
+
   getStreamUrl(itemId: string, container?: string): string {
     if (!this.config) return "";
     const params = new URLSearchParams({
@@ -168,7 +196,8 @@ export class JellyfinClient {
       ...(container ? { container } : {}),
     });
     const token = this.config.token;
-    return `${this.baseUrl}/Audio/${itemId}/stream?${params.toString()}&api_key=${token}`;
+    const url = `${this.baseUrl}/Audio/${itemId}/stream?${params.toString()}&api_key=${token}`;
+    return this.getProxyUrl(url, { stream: true });
   }
 
   getStreamUrlTranscoded(itemId: string, container: string = "opus", maxBitrate: number = 320000): string {
@@ -180,7 +209,8 @@ export class JellyfinClient {
       transcodingProtocol: "hls",
       api_key: this.config.token,
     });
-    return `${this.baseUrl}/Audio/${itemId}/universal?${params.toString()}`;
+    const url = `${this.baseUrl}/Audio/${itemId}/universal?${params.toString()}`;
+    return this.getProxyUrl(url, { stream: true });
   }
 
   // Store config and persist
@@ -202,7 +232,9 @@ export class JellyfinClient {
     password: string,
   ): Promise<{ user: JellyfinUser; token: string }> {
     const normalizedUrl = serverUrl.replace(/\/+$/, "");
-    const response = await fetch(`${normalizedUrl}/Users/AuthenticateByName`, {
+    const directUrl = `${normalizedUrl}/Users/AuthenticateByName`;
+    const url = this.getProxyUrl(directUrl);
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -228,10 +260,12 @@ export class JellyfinClient {
     apiKey: string,
   ): Promise<{ user: JellyfinUser }> {
     const normalizedUrl = serverUrl.replace(/\/+$/, "");
+    const directUrlMe = `${normalizedUrl}/Users/Me`;
+    const urlMe = this.getProxyUrl(directUrlMe);
 
     // Tenta primeiro o endpoint /Users/Me (caso a chave de API esteja vinculada a um usuário específico)
     try {
-      const response = await fetch(`${normalizedUrl}/Users/Me`, {
+      const response = await fetch(urlMe, {
         headers: {
           "X-Emby-Token": apiKey,
           "X-Emby-Authorization": `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}"`,
@@ -249,7 +283,9 @@ export class JellyfinClient {
 
     // Fallback: se falhar, tenta obter a lista completa de usuários e selecionar o primeiro disponível.
     // Chaves de API globais criadas pelo administrador do Jellyfin possuem permissão para listar usuários.
-    const response = await fetch(`${normalizedUrl}/Users`, {
+    const directUrlUsers = `${normalizedUrl}/Users`;
+    const urlUsers = this.getProxyUrl(directUrlUsers);
+    const response = await fetch(urlUsers, {
       headers: {
         "X-Emby-Token": apiKey,
         "X-Emby-Authorization": `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}"`,

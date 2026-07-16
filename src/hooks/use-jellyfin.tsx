@@ -24,6 +24,8 @@ interface JellyfinContextType {
   getImageUrl: (itemId: string, options?: { height?: number; width?: number; quality?: number }) => string;
   getBackdropUrl: (itemId: string, options?: { height?: number; width?: number; quality?: number }) => string;
   getStreamUrl: (itemId: string, container?: string) => string;
+  getUserImageUrl: (userId?: string) => string;
+  userId: string;
 }
 
 const JellyfinContext = createContext<JellyfinContextType | null>(null);
@@ -31,6 +33,7 @@ const JellyfinContext = createContext<JellyfinContextType | null>(null);
 export function JellyfinProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(jellyfinClient.isConnected);
   const [serverUrl, setServerUrl] = useState(jellyfinClient.serverUrl);
+  const [userId, setUserId] = useState(jellyfinClient.userId);
   const [userName, setUserName] = useState("");
   const [serverName, setServerName] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
@@ -79,6 +82,7 @@ export function JellyfinProvider({ children }: { children: ReactNode }) {
       });
       setConnected(true);
       setServerUrl(sUrl);
+      setUserId(user.Id);
       setUserName(username);
       const displayName = user.Name || username;
       setUserDisplayName(displayName);
@@ -105,6 +109,7 @@ export function JellyfinProvider({ children }: { children: ReactNode }) {
       });
       setConnected(true);
       setServerUrl(sUrl);
+      setUserId(user.Id);
       const displayName = user.Name || "User";
       setUserDisplayName(displayName);
       localStorage.setItem("jellyfin_user_name", displayName);
@@ -123,6 +128,7 @@ export function JellyfinProvider({ children }: { children: ReactNode }) {
     setConnected(false);
     setServerUrl("");
     setUserName("");
+    setUserId("");
     setUserDisplayName("");
     setMusicLibraries([]);
     setSelectedLibrary(null);
@@ -185,6 +191,8 @@ export function JellyfinProvider({ children }: { children: ReactNode }) {
     getImageUrl: useCallback((id, opts) => jellyfinClient.getImageUrl(id, opts), []),
     getBackdropUrl: useCallback((id, opts) => jellyfinClient.getBackdropUrl(id, opts), []),
     getStreamUrl: useCallback((id, container) => jellyfinClient.getStreamUrl(id, container), []),
+    getUserImageUrl: useCallback((uid) => jellyfinClient.getUserImageUrl(uid), []),
+    userId,
   };
 
   return (

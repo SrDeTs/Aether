@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Disc3, Mic2, Music, ListMusic, Palette, Volume2, Info, Sparkles, Sliders, RotateCcw, Settings2, Search, Loader2, X } from "lucide-react";
@@ -20,8 +20,9 @@ import { Input } from "@/components/ui/input";
 import { RubberBandSlider } from "@/components/ui/RubberBandSlider";
 import { cn } from "@/lib/utils";
 import type { JellyfinItem } from "@/lib/jellyfin";
+import { EqualizerView } from "@/components/player/EqualizerView";
 
-type ViewType = "artists" | "tracks" | "recent" | "search" | "settings";
+type ViewType = "artists" | "tracks" | "recent" | "search" | "settings" | "equalizer";
 
 /** Correct hex-to-HSL conversion (standard algorithm, no atan2 hacks) */
 function hexToHSL(hex: string): { h: number; s: number; l: number } {
@@ -149,6 +150,38 @@ export default function Player() {
   const [recentTracks, setRecentTracks] = useState<JellyfinItem[]>([]);
   const [searchResults, setSearchResults] = useState<JellyfinItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const artistsRef = useRef(artists);
+  const tracksRef = useRef(tracks);
+  const recentTracksRef = useRef(recentTracks);
+
+  useEffect(() => {
+    artistsRef.current = artists;
+  }, [artists]);
+
+  useEffect(() => {
+    tracksRef.current = tracks;
+  }, [tracks]);
+
+  useEffect(() => {
+    recentTracksRef.current = recentTracks;
+  }, [recentTracks]);
+
+  const searchTracks = useMemo(() =>
+    searchResults.filter((i) => i.Type === "Audio"), [searchResults]
+  );
+  const searchArtists = useMemo(() =>
+    searchResults.filter((i) => i.Type === "MusicArtist"), [searchResults]
+  );
+
+  const activeTracksSource = useMemo(() => {
+    return searchQuery.trim() ? searchTracks : tracks;
+  }, [searchQuery, searchTracks, tracks]);
+
+  const isTracksLoading = useMemo(() => {
+    return searchQuery.trim() ? searchLoading : loading;
+  }, [searchQuery, searchLoading, loading]);
 
   const sortedTracks = useMemo(() => {
     const cleanForSort = (str: string) => {
@@ -161,7 +194,7 @@ export default function Player() {
         .trim();
     };
 
-    return [...tracks].sort((a, b) => {
+    return [...activeTracksSource].sort((a, b) => {
       const nameA = a.Name || "";
       const nameB = b.Name || "";
       const cleanA = cleanForSort(nameA);
@@ -172,7 +205,7 @@ export default function Player() {
       }
       return nameA.toLowerCase().localeCompare(nameB.toLowerCase(), "pt-BR");
     });
-  }, [tracks]);
+  }, [activeTracksSource]);
 
   const currentTrackIndex = useMemo(() => {
     if (!currentTrack) return undefined;
@@ -185,12 +218,34 @@ export default function Player() {
   }, [connected, navigate]);
 
   useEffect(() => {
+    setArtists([]);
+    setTracks([]);
+    setRecentTracks([]);
+  }, [selectedLibrary?.Id]);
+
+  useEffect(() => {
     if (!connected) return;
 
     const parentId = selectedLibrary?.Id;
 
     const loadData = async () => {
-      setLoading(true);
+      let shouldShowLoading = false;
+      switch (activeView) {
+        case "artists":
+          shouldShowLoading = artistsRef.current.length === 0;
+          break;
+        case "tracks":
+          shouldShowLoading = tracksRef.current.length === 0;
+          break;
+        case "recent":
+          shouldShowLoading = recentTracksRef.current.length === 0;
+          break;
+      }
+
+      if (shouldShowLoading) {
+        setLoading(true);
+      }
+
       try {
         switch (activeView) {
           case "artists": {
@@ -216,10 +271,8 @@ export default function Player() {
       }
     };
 
-    if (!searchQuery && activeView !== "search") loadData();
+    loadData();
   }, [activeView, selectedLibrary, connected, getArtists, getTracks, getRecentlyAdded]);
-
-  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     if (!connected || !searchQuery.trim()) {
@@ -244,29 +297,14 @@ export default function Player() {
     return () => clearTimeout(timeout);
   }, [searchQuery, connected, jellyfinSearch, selectedLibrary]);
 
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      setActiveView("search");
-    } else if (activeView === "search") {
-      setActiveView("tracks");
-    }
-  }, [searchQuery, activeView]);
-
   const handleViewChange = useCallback((view: ViewType) => {
     setActiveView(view);
-    if (view !== "search") setSearchQuery("");
+    setSearchQuery("");
   }, []);
 
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
-
-  const searchTracks = useMemo(() =>
-    searchResults.filter((i) => i.Type === "Audio"), [searchResults]
-  );
-  const searchArtists = useMemo(() =>
-    searchResults.filter((i) => i.Type === "MusicArtist"), [searchResults]
-  );
 
   if (!connected) return null;
 
@@ -295,7 +333,7 @@ export default function Player() {
         />
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden glass rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none flex flex-col">
-          <div className={cn("p-6 md:p-8 max-w-7xl mx-auto relative z-10 w-full flex-1 flex flex-col", activeView === "tracks" && trackLayout === "carousel" && "min-h-full justify-center")}>
+          <div className="p-6 md:p-8 max-w-7xl mx-auto relative z-10 w-full flex-1 flex flex-col">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeView}
@@ -303,10 +341,10 @@ export default function Player() {
                 animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
                 exit={{ opacity: 0, scale: 0.97, y: -10, filter: "blur(4px)" }}
                 transition={{ type: "spring", stiffness: 300, damping: 28, mass: 0.8 }}
-                className={cn("w-full flex-1 flex flex-col", activeView === "tracks" && trackLayout === "carousel" && "min-h-full justify-center")}
+                className="w-full flex-1 flex flex-col"
               >
                 <>
-                  {(activeView === "tracks" || activeView === "search") && (
+                  {activeView === "tracks" && (
                       <div className="mb-6 flex justify-end">
                         <div className="relative w-full sm:w-80">
                           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
@@ -327,70 +365,6 @@ export default function Player() {
                             </button>
                           ) : null}
                         </div>
-                      </div>
-                    )}
-                    {activeView === "search" && searchQuery.trim() && (
-                      <div className="space-y-8">
-                        {searchLoading && searchResults.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                            <p className="text-xs text-muted-foreground/60 font-mono">Buscando no Jellyfin...</p>
-                          </div>
-                        ) : (
-                          <>
-                            {searchArtists.length > 0 && (
-                              <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.2 }}
-                              >
-                                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3 font-mono">Artistas</h2>
-                                <div className="flex flex-wrap gap-3">
-                                  {searchArtists.map((artist) => (
-                                    <motion.button
-                                      key={artist.Id}
-                                      className="glass-strong rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] active:scale-95 transition-all text-left w-full sm:w-[220px]"
-                                      onClick={() => handleSearchChange(artist.Name)}
-                                    >
-                                      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/[0.04] shrink-0">
-                                        {getImageUrl(artist.Id, { height: 80, width: 80, quality: 80 }) ? (
-                                          <img src={getImageUrl(artist.Id, { height: 80, width: 80, quality: 80 })} alt={artist.Name} className="w-full h-full object-cover" />
-                                        ) : (
-                                          <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                                            <Mic2 className="w-4 h-4 text-primary" />
-                                          </div>
-                                        )}
-                                      </div>
-                                      <p className="text-xs font-medium truncate flex-1">{artist.Name}</p>
-                                    </motion.button>
-                                  ))}
-                                </div>
-                              </motion.div>
-                            )}
-
-
-
-                            {searchTracks.length > 0 && (
-                              <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.2, delay: 0.1 }}
-                              >
-                                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3 font-mono">Músicas</h2>
-                                <TrackList tracks={searchTracks} isLoading={false} />
-                              </motion.div>
-                            )}
-
-                            {!searchLoading && searchResults.length === 0 && (
-                              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                                <div className="glass-strong rounded-full p-5">
-                                  <Music className="w-10 h-10 text-muted-foreground/30" />
-                                </div>
-                                <p className="text-sm text-muted-foreground">Nenhum resultado encontrado</p>
-                              </div>
-                            )}
-                          </>
-                        )}
                       </div>
                     )}
 
@@ -426,7 +400,33 @@ export default function Player() {
                     )}
 
                     {activeView === "tracks" && (
-                      <div className={cn("space-y-6 flex flex-col flex-1", trackLayout === "carousel" && "min-h-full justify-center")}>
+                      <div className="space-y-6 flex flex-col flex-1">
+                        {searchQuery.trim() && searchArtists.length > 0 && (
+                          <div className="pb-4">
+                            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3 font-mono">Artistas Encontrados</h2>
+                            <div className="flex flex-wrap gap-3">
+                              {searchArtists.map((artist) => (
+                                <motion.button
+                                  key={artist.Id}
+                                  className="glass-strong rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.08] active:scale-95 transition-all text-left w-full sm:w-[220px]"
+                                  onClick={() => handleSearchChange(artist.Name)}
+                                >
+                                  <div className="w-10 h-10 rounded-full overflow-hidden bg-white/5 border border-white/[0.04] shrink-0">
+                                    {getImageUrl(artist.Id, { height: 80, width: 80, quality: 80 }) ? (
+                                      <img src={getImageUrl(artist.Id, { height: 80, width: 80, quality: 80 })} alt={artist.Name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                                        <Mic2 className="w-4 h-4 text-primary" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <p className="text-xs font-medium truncate flex-1">{artist.Name}</p>
+                                </motion.button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-end gap-4 pb-4">
                           <div className="flex items-center gap-2">
                             <Button
@@ -452,7 +452,7 @@ export default function Player() {
                               Carrossel 3D
                             </Button>
 
-                            {trackLayout === "carousel" && tracks.length > 0 && (
+                            {trackLayout === "carousel" && activeTracksSource.length > 0 && (
                               <div className="flex items-center gap-1.5 ml-2 border-l border-white/[0.08] pl-3">
                                 <Button
                                   variant="ghost"
@@ -467,82 +467,170 @@ export default function Player() {
                           </div>
                         </div>
 
-                        {loading ? (
-                          <TrackList tracks={[]} isLoading={true} />
-                        ) : !tracks.length ? (
-                          <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <div className="glass-strong rounded-full p-4">
-                              <Music className="w-8 h-8 text-muted-foreground/40" />
-                            </div>
-                            <p className="text-muted-foreground text-sm font-medium">Nenhuma música encontrada</p>
-                          </div>
-                        ) : trackLayout === "list" ? (
-                          <TrackList tracks={tracks} isLoading={false} />
-                        ) : (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="w-full py-4 relative flex-1 flex flex-col items-center justify-center"
-                            style={{
-                              WebkitMaskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)",
-                              maskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)"
-                            }}
-                          >
-                            <CylinderCarousel
-                              variant={carouselVariant}
-                              itemSize={carouselItemSize}
-                              visibleItems={3}
-                              height={carouselHeight}
-                              className="w-full"
-                              selectedIndex={currentTrackIndex}
-                              defaultIndex={currentTrackIndex ?? 0}
-                            >
-                              {sortedTracks.map((trackItem, index) => {
-                                const coverUrl = getImageUrl(trackItem.AlbumId || trackItem.Id, { height: 300, width: 300, quality: 90 });
-                                const artist = trackItem.AlbumArtist || trackItem.Artists?.[0] || trackItem.ArtistItems?.[0]?.Name || "Artista Desconhecido";
-
-                                const handlePlayClick = () => {
-                                  const mappedTracks = sortedTracks.map((item) => {
-                                    const img = getImageUrl(item.AlbumId || item.Id, { height: 60, width: 60, quality: 90 });
-                                    return trackFromJellyfinItem(item, img);
-                                  });
-                                  playQueue(mappedTracks, index);
-                                };
-
-                                return (
-                                  <div
-                                    key={trackItem.Id}
-                                    onClick={handlePlayClick}
-                                    className="w-full h-full aspect-square rounded-2xl overflow-hidden glass-card cursor-pointer border border-white/[0.06] shadow-2xl group relative select-none"
-                                  >
-                                    {coverUrl ? (
-                                      <CachedImage
-                                        src={coverUrl}
-                                        cacheKey={trackItem.AlbumId || trackItem.Id}
-                                        alt={trackItem.Name}
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
-                                        referrerPolicy="no-referrer"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center bg-white/5">
-                                        <Music className="w-16 h-16 text-primary/30" />
+                        <motion.div
+                          layout="size"
+                          transition={{
+                            type: "spring",
+                            stiffness: 170,
+                            damping: 24,
+                            mass: 1
+                          }}
+                          className="w-full flex-1 flex flex-col relative overflow-hidden"
+                        >
+                          <AnimatePresence mode="popLayout" initial={false}>
+                            {loading && !tracks.length ? (
+                              trackLayout === "list" ? (
+                                <motion.div
+                                  key="loading-list"
+                                  initial={{ opacity: 0, y: 15 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -15 }}
+                                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                                  className="w-full flex-1 flex flex-col"
+                                >
+                                  <TrackList tracks={[]} isLoading={true} />
+                                </motion.div>
+                              ) : (
+                                <motion.div
+                                  key="loading-carousel"
+                                  initial={{ opacity: 0, scale: 0.92, y: 15 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.92, y: -15 }}
+                                  transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                                  className="w-full py-6 relative flex-1 flex flex-col items-center justify-center min-h-[420px]"
+                                  style={{
+                                    WebkitMaskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)",
+                                    maskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)"
+                                  }}
+                                >
+                                  <div className="w-full max-w-5xl mx-auto flex items-center justify-center gap-6 relative px-4 select-none">
+                                    {/* Left Card skeleton */}
+                                    <div className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] md:w-[240px] md:h-[240px] rounded-2xl border border-white/[0.04] bg-white/[0.02] shadow-xl shrink-0 opacity-40 scale-85 blur-[1px] animate-pulse" />
+                                    
+                                    {/* Center Card skeleton */}
+                                    <div className="w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] md:w-[300px] md:h-[300px] rounded-2xl border border-white/[0.08] bg-white/[0.04] shadow-2xl relative shrink-0 flex flex-col justify-end p-6 overflow-hidden animate-pulse">
+                                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                      <div className="relative z-10 space-y-2">
+                                        <div className="h-4 w-32 bg-white/20 rounded-md" />
+                                        <div className="h-3 w-20 bg-white/10 rounded-md" />
                                       </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 text-left">
-                                      <p className="text-xs font-semibold text-white truncate leading-snug">{trackItem.Name}</p>
-                                      <p className="text-[10px] text-white/70 truncate mt-0.5 leading-none">{artist}</p>
                                     </div>
+                                    
+                                    {/* Right Card skeleton */}
+                                    <div className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] md:w-[240px] md:h-[240px] rounded-2xl border border-white/[0.04] bg-white/[0.02] shadow-xl shrink-0 opacity-40 scale-85 blur-[1px] animate-pulse" />
                                   </div>
-                                );
-                              })}
-                            </CylinderCarousel>
-                          </motion.div>
-                        )}
+                                </motion.div>
+                              )
+                            ) : !activeTracksSource.length ? (
+                              searchLoading ? (
+                                <motion.div
+                                  key="search-loading"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  className="flex flex-col items-center justify-center py-20 gap-3 flex-1 w-full"
+                                >
+                                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                  <p className="text-xs text-muted-foreground/60 font-mono">Buscando...</p>
+                                </motion.div>
+                              ) : (
+                                <motion.div
+                                  key="empty"
+                                  initial={{ opacity: 0, scale: 0.98 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.98 }}
+                                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                                  className="flex flex-col items-center justify-center py-20 gap-3 flex-1 w-full"
+                                >
+                                  <div className="glass-strong rounded-full p-4">
+                                    <Music className="w-8 h-8 text-muted-foreground/40" />
+                                  </div>
+                                  <p className="text-muted-foreground text-sm font-medium">Nenhuma música encontrada</p>
+                                </motion.div>
+                              )
+                            ) : trackLayout === "list" ? (
+                              <motion.div
+                                key="list"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: searchLoading ? 0.5 : 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                                className={cn("w-full flex-1 transition-opacity duration-200", searchLoading && "pointer-events-none")}
+                              >
+                                <TrackList tracks={sortedTracks} isLoading={false} />
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                key="carousel"
+                                initial={{ opacity: 0, scale: 0.92, y: 15 }}
+                                animate={{ opacity: searchLoading ? 0.5 : 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.92, y: -15 }}
+                                transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                                className={cn("w-full py-6 relative flex-1 flex flex-col items-center justify-center min-h-[420px] transition-opacity duration-200", searchLoading && "pointer-events-none")}
+                                style={{
+                                  WebkitMaskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)",
+                                  maskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)"
+                                }}
+                              >
+                                <CylinderCarousel
+                                  variant={carouselVariant}
+                                  itemSize={carouselItemSize}
+                                  visibleItems={3}
+                                  height={carouselHeight}
+                                  className="w-full"
+                                  selectedIndex={currentTrackIndex}
+                                  defaultIndex={currentTrackIndex ?? 0}
+                                >
+                                  {sortedTracks.map((trackItem, index) => {
+                                    const coverUrl = getImageUrl(trackItem.AlbumId || trackItem.Id, { height: 300, width: 300, quality: 90 });
+                                    const artist = trackItem.AlbumArtist || trackItem.Artists?.[0] || trackItem.ArtistItems?.[0]?.Name || "Artista Desconhecido";
+
+                                    const handlePlayClick = () => {
+                                      const mappedTracks = sortedTracks.map((item) => {
+                                        const img = getImageUrl(item.AlbumId || item.Id, { height: 60, width: 60, quality: 90 });
+                                        return trackFromJellyfinItem(item, img);
+                                      });
+                                      playQueue(mappedTracks, index);
+                                    };
+
+                                    return (
+                                      <div
+                                        key={trackItem.Id}
+                                        onClick={handlePlayClick}
+                                        className="w-full h-full aspect-square rounded-2xl overflow-hidden glass-card cursor-pointer border border-white/[0.06] shadow-2xl group relative select-none"
+                                      >
+                                        {coverUrl ? (
+                                          <CachedImage
+                                            src={coverUrl}
+                                            cacheKey={trackItem.AlbumId || trackItem.Id}
+                                            alt={trackItem.Name}
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
+                                            referrerPolicy="no-referrer"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                            <Music className="w-16 h-16 text-primary/30" />
+                                          </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 text-left">
+                                          <p className="text-xs font-semibold text-white truncate leading-snug">{trackItem.Name}</p>
+                                          <p className="text-[10px] text-white/70 truncate mt-0.5 leading-none">{artist}</p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </CylinderCarousel>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
                       </div>
                     )}
                     {activeView === "recent" && <TrackList tracks={recentTracks} isLoading={loading} />}
 
                     {activeView === "settings" && <SettingsView />}
+
+                    {activeView === "equalizer" && <EqualizerView />}
                 </>
               </motion.div>
             </AnimatePresence>
@@ -683,7 +771,7 @@ function SettingsView() {
       {tab === "sobre" && (
         <div className="glass-strong rounded-2xl p-5 space-y-4 text-center">
           <img src={iconWebp} className="w-16 h-16 rounded-2xl mx-auto shadow-xl" alt="Aether" />
-          <div><h2 className="text-lg font-bold">Aether</h2><p className="text-xs text-muted-foreground">v0.0.1</p></div>
+          <div><h2 className="text-lg font-bold">Aether</h2><p className="text-xs text-muted-foreground">v1.0.0</p></div>
           <p className="text-xs text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
             Um reprodutor musical moderno para servidores Jellyfin.<br /> Com temas dinâmicos, efeitos glassmorphism e integração direta.
           </p>

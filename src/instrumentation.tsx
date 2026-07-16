@@ -167,6 +167,23 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+function isNetworkError(message: string): boolean {
+  if (!message) return false;
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("fetch") ||
+    lower.includes("network") ||
+    lower.includes("load failed") ||
+    lower.includes("cors") ||
+    lower.includes("status code") ||
+    lower.includes("failed to load") ||
+    lower.includes("connection") ||
+    lower.includes("aborted") ||
+    lower.includes("jellyfin api") ||
+    lower.includes("api error")
+  );
+}
+
 export function InstrumentationProvider({
   children,
 }: {
@@ -178,6 +195,12 @@ export function InstrumentationProvider({
     const handleError = async (event: ErrorEvent) => {
       try {
         console.log(event);
+        
+        // Filter out network/fetch-related errors
+        if (isNetworkError(event.message)) {
+          return;
+        }
+
         event.preventDefault();
         setError({
           error: event.message,
@@ -205,16 +228,23 @@ export function InstrumentationProvider({
       try {
         console.error(event);
 
+        const reasonMsg = event.reason?.message || String(event.reason || "");
+        
+        // Filter out network/fetch-related promise rejections
+        if (isNetworkError(reasonMsg)) {
+          return;
+        }
+
         if (import.meta.env.VITE_VLY_APP_ID) {
           await reportErrorToVly({
-            error: event.reason.message,
-            stackTrace: event.reason.stack,
+            error: reasonMsg,
+            stackTrace: event.reason?.stack,
           });
         }
 
         setError({
-          error: event.reason.message,
-          stack: event.reason.stack,
+          error: reasonMsg,
+          stack: event.reason?.stack,
         });
       } catch (error) {
         console.error("Error in handleRejection:", error);
@@ -236,3 +266,4 @@ export function InstrumentationProvider({
     </>
   );
 }
+

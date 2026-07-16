@@ -89,7 +89,7 @@ function CarouselBall({
   gap,
   edgeOffset,
   minScale,
-  convex,
+  convexProgress,
   arc,
   halfWidth,
   itemSize,
@@ -110,7 +110,7 @@ function CarouselBall({
   /** Offset at which a ball's center sits on the container edge. */
   edgeOffset: number;
   minScale: number;
-  convex: boolean;
+  convexProgress: MotionValue<number>;
   /** Curve depth in px between the center ball and the edge balls. */
   arc: number;
   halfWidth: number;
@@ -124,35 +124,36 @@ function CarouselBall({
     o -= Math.round(o / count) * count;
     return o;
   });
-  // Concave spacing follows the interior perspective (slow, tight center);
-  // convex pairs its big center balls with uniform spacing — the interior
-  // projection would collapse them into each other.
-  const x = useTransform(offset, (o) => {
-    if (convex) return o * gap;
+
+  // Smoothly blend concave and convex horizontally based on convexProgress (0 to 1)
+  const x = useTransform([offset, convexProgress], (args: any) => {
+    const [o, cp] = args as [number, number];
+    const xConvex = o * gap;
     const th = Math.max(-THETA_CLAMP, Math.min(THETA_CLAMP, o * alpha));
-    return (projection * Math.sin(th)) / (Math.cos(th) + k);
+    const xConcave = (projection * Math.sin(th)) / (Math.cos(th) + k);
+    return xConcave + (xConvex - xConcave) * cp;
   });
-  // Linear in wall angle, not in depth (the depth curve is near-flat around
-  // the center, which made the middle three read as equal): every step is
-  // visibly bigger than the last — growing outward (concave) or inward
-  // (convex).
-  const scale = useTransform(offset, (o) => {
+
+  // Smoothly blend concave and convex sizing based on convexProgress
+  const scale = useTransform([offset, convexProgress], (args: any) => {
+    const [o, cp] = args as [number, number];
     const t = Math.min(Math.abs(o) / edgeOffset, THETA_CLAMP / THETA_EDGE);
-    return convex
-      ? 1 - (1 - minScale) * t
-      : minScale + (1 - minScale) * t;
+    const scaleConcave = minScale + (1 - minScale) * t;
+    const scaleConvex = 1 - (1 - minScale) * t;
+    return scaleConcave + (scaleConvex - scaleConcave) * cp;
   });
-  // Parabola centered on the stage — valley for concave (center ball dips
-  // arc/2 below the midline, edges rise arc/2 above), arch for convex — and
-  // deliberately unclamped: a ball keeps following the same curve as it
-  // crosses the edge, so entries never pop.
-  const y = useTransform(x, (px) => {
+
+  // Smoothly bend the cylinder arc from concave (bowl) to convex (dome)
+  const y = useTransform([x, convexProgress], (args: any) => {
+    const [px, cp] = args as [number, number];
     const t = px / halfWidth;
     const valley = arc * (0.5 - t * t);
-    return convex ? -valley : valley;
+    const factor = 1 - 2 * cp; // 1 at cp=0 (concave), -1 at cp=1 (convex)
+    return valley * factor;
   });
+
   // Fully off-stage balls stop painting (matters for canvas/shader children).
-  const visibility = useTransform(x, (px) =>
+  const visibility = useTransform(x, (px: any) =>
     Math.abs(px) > halfWidth + itemSize ? "hidden" : "visible",
   );
 
@@ -243,6 +244,18 @@ export function CylinderCarousel({
   // Drags write it 1:1 so the wall sticks to the pointer; releases hand the
   // pointer velocity to a soft spring so the roll glides on and settles free.
   const scroll = useMotionValue(defaultIndex);
+  const convexProgress = useMotionValue(variant === "convex" ? 1 : 0);
+
+  useEffect(() => {
+    const controls = animate(convexProgress, variant === "convex" ? 1 : 0, {
+      type: "spring",
+      stiffness: 85,
+      damping: 14,
+      mass: 1,
+    });
+    return () => controls.stop();
+  }, [variant, convexProgress]);
+
   const indexRef = useRef(defaultIndex);
   const [activeIndex, setActiveIndex] = useState(defaultIndex);
   const glideRef = useRef<AnimationPlaybackControls | null>(null);
@@ -523,7 +536,7 @@ export function CylinderCarousel({
               gap={gap}
               edgeOffset={edgeOffset}
               minScale={minScale}
-              convex={convex}
+              convexProgress={convexProgress}
               arc={arc}
               halfWidth={halfWidth}
               itemSize={size}
