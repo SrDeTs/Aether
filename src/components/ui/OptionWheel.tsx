@@ -93,6 +93,8 @@ const OptionWheel = ({
   const onSettledRef = useRef(onSettled);
   const selectedRef = useRef(defaultSelected);
   const activeElementIndexRef = useRef<number | null>(null);
+  const blurAnchorIndexRef = useRef<number | null>(null);
+  const blurValueRef = useRef<string[]>([]);
   const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ y: number; start: number; id: number } | null>(null);
   const dragMovedRef = useRef(false);
@@ -153,6 +155,8 @@ const OptionWheel = ({
       els[activeIndex]?.style.setProperty('color', 'var(--ow-active-color)');
       activeElementIndexRef.current = activeIndex;
     }
+    const updateBlur = blurAnchorIndexRef.current !== activeIndex;
+    if (updateBlur) blurAnchorIndexRef.current = activeIndex;
     const mirror = cfg.side === 'right' ? -1 : 1;
     // Options sit on a circle whose radius keeps the arc length between two
     // neighbors equal to one row height, so tilt controls how tightly it curls.
@@ -182,10 +186,24 @@ const OptionWheel = ({
       // retains its own vertical position instead of collapsing at 50%.
       el.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) translateY(-50%) rotate(${rot.toFixed(3)}deg)`;
       el.style.opacity = String(Math.max(cfg.minOpacity, 1 - dist * cfg.fade));
-      // Filters repaint text. Applying blur while the pointer is moving is
-      // the main cause of WebKitGTK jank, so retain the same resting visual
-      // without repeatedly repainting every label during a drag.
-      el.style.filter = settled && cfg.blur > 0 ? `blur(${(dist * cfg.blur).toFixed(2)}px)` : 'none';
+      if (updateBlur) {
+        let blurDelta = i - activeIndex;
+        if (cfg.loop && n > 1) {
+          blurDelta = ((blurDelta % n) + n) % n;
+          if (blurDelta > n / 2) blurDelta -= n;
+        }
+        const blurDistance = Math.abs(blurDelta);
+        // Keep the blur on the three visible neighbours only. The value
+        // changes when crossing an option, not every animation frame, and
+        // the CSS transition below makes that hand-off visually continuous.
+        const nextBlur = cfg.blur > 0 && blurDistance <= 3
+          ? `blur(${Math.min(blurDistance * cfg.blur, 8).toFixed(2)}px)`
+          : 'none';
+        if (blurValueRef.current[i] !== nextBlur) {
+          el.style.filter = nextBlur;
+          blurValueRef.current[i] = nextBlur;
+        }
+      }
     }
 
     rafRef.current = settled ? null : requestAnimationFrame(runFrame);
@@ -321,6 +339,8 @@ const OptionWheel = ({
 
   useEffect(() => {
     activeElementIndexRef.current = null;
+    blurAnchorIndexRef.current = null;
+    blurValueRef.current = [];
     applyTarget(targetRef.current, false);
   }, [items, fontSize, spacing, curve, tilt, blur, fade, minOpacity, side, loop, smoothing, applyTarget]);
 
@@ -385,6 +405,7 @@ const OptionWheel = ({
           }}
           role="option"
           aria-selected={selectedIndex === index}
+          style={{ transition: 'filter 140ms ease-out' }}
           className={`absolute top-1/2 cursor-pointer whitespace-nowrap leading-none will-change-[transform,opacity] [font-size:var(--ow-font-size)] [color:var(--ow-text-color)] ${
             side === 'right' ? 'right-[var(--ow-inset)] origin-right' : 'left-[var(--ow-inset)] origin-left'
           } ${selectedIndex === index ? 'font-medium' : 'font-extralight'}`}
