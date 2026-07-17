@@ -146,7 +146,10 @@ export class JellyfinClient {
 
     const response = await fetch(url, { ...options, headers });
     if (!response.ok) {
-      if (response.status === 401 && !suppressUnauthorized) {
+      if (response.status === 401 || response.status === 403) {
+        if (suppressUnauthorized) {
+          return {} as T;
+        }
         this.onUnauthorized?.();
       }
       const text = await response.text().catch(() => "Unknown error");
