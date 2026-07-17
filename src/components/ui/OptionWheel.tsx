@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect, useLayoutEffect, CSSProperties } from 'react';
+import { useRef, useState, useCallback, useEffect, CSSProperties } from 'react';
 
 type Side = 'left' | 'right';
 
@@ -6,6 +6,8 @@ export interface OptionWheelProps {
   items?: string[];
   defaultSelected?: number;
   onChange?: (index: number, item: string) => void;
+  /** Called after a drag, click, key press or wheel gesture has settled. */
+  onSettled?: (index: number, item: string) => void;
   textColor?: string;
   activeColor?: string;
   side?: Side;
@@ -61,46 +63,49 @@ const OptionWheel = ({
   items = DEFAULT_ITEMS,
   defaultSelected = 3,
   onChange,
+  onSettled,
   textColor = '#a6a6a6',
   activeColor = '#ffffff',
   side = 'left',
-  fontSize = 5,
+  fontSize = 3,
   spacing = 1.4,
-  curve = 2,
-  tilt = 5,
+  curve = 1,
+  tilt = 6,
   blur = 2,
-  fade = 0,
+  fade = 0.25,
   minOpacity = 0.05,
   smoothing = 200,
   inset = 80,
   loop = false,
   draggable = true,
   soundUrl = '',
-  soundVolume = 1,
+  soundVolume = 0.5,
   className = ''
 }: OptionWheelProps) => {
-  const initialIndex = typeof defaultSelected === 'number' && !isNaN(defaultSelected) ? defaultSelected : 0;
   const rootRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const posRef = useRef(initialIndex);
-  const targetRef = useRef(initialIndex);
+  const posRef = useRef(defaultSelected);
+  const targetRef = useRef(defaultSelected);
   const rafRef = useRef<number | null>(null);
   const lastRef = useRef(0);
   const cfgRef = useRef<WheelConfig>({} as WheelConfig);
   const onChangeRef = useRef(onChange);
-  const selectedRef = useRef(initialIndex);
+  const onSettledRef = useRef(onSettled);
+  const selectedRef = useRef(defaultSelected);
+  const activeElementIndexRef = useRef<number | null>(null);
   const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ y: number; start: number; id: number } | null>(null);
   const dragMovedRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef('');
   const lastTickRef = useRef(0);
-  const [selectedIndex, setSelectedIndex] = useState(initialIndex);
+  const [selectedIndex, setSelectedIndex] = useState(defaultSelected);
   const [isDragging, setIsDragging] = useState(false);
 
   const remPx = typeof window !== 'undefined' ? parseFloat(getComputedStyle(document.documentElement).fontSize) || 16 : 16;
 
   onChangeRef.current = onChange;
+  onSettledRef.current = onSettled;
   cfgRef.current = {
     count: items.length,
     items,
@@ -118,17 +123,41 @@ const OptionWheel = ({
     soundVolume
   };
 
-  // Dedicated function to update styles on elements directly to avoid any React render lag.
-  const updateLayout = useCallback((next: number) => {
+  // Single rAF loop that eases the wheel position toward its target with
+  // frame-rate independent exponential smoothing, then lays every option out
+  // along the curve based on its distance from the current position.
+  const runFrame = useCallback((now: number) => {
+    const dt = Math.min((now - lastRef.current) / 1000, 0.05);
+    lastRef.current = now;
     const cfg = cfgRef.current;
-    if (!cfg || cfg.count === 0) return;
+    if (cfg.count === 0) {
+      rafRef.current = null;
+      return;
+    }
+    const tau = Math.max(cfg.smoothing, 1) / 1000;
+    const k = 1 - Math.exp(-dt / tau);
+
+    const target = targetRef.current;
+    const cur = posRef.current;
+    let next = cur + (target - cur) * k;
+    const settled = Math.abs(target - next) < 0.001;
+    if (settled) next = target;
+    posRef.current = next;
 
     const els = itemRefs.current;
     const n = cfg.count;
+    const activeIndex = ((Math.round(next) % n) + n) % n;
+    if (activeElementIndexRef.current !== activeIndex) {
+      const previous = activeElementIndexRef.current;
+      if (previous != null) els[previous]?.style.setProperty('color', 'var(--ow-text-color)');
+      els[activeIndex]?.style.setProperty('color', 'var(--ow-active-color)');
+      activeElementIndexRef.current = activeIndex;
+    }
     const mirror = cfg.side === 'right' ? -1 : 1;
+    // Options sit on a circle whose radius keeps the arc length between two
+    // neighbors equal to one row height, so tilt controls how tightly it curls.
     const tiltRad = (cfg.tilt * Math.PI) / 180;
     const R = tiltRad > 0.0005 ? cfg.rowH / tiltRad : 0;
-
     for (let i = 0; i < n; i++) {
       const el = els[i];
       if (!el) continue;
@@ -147,37 +176,20 @@ const OptionWheel = ({
         x = -mirror * R * (1 - Math.cos(ang)) * cfg.curve;
         rot = (mirror * ang * 180) / Math.PI;
       }
-      const scale = Math.max(0.65, 1 - dist * 0.12);
-      el.style.transform = `translate(${x.toFixed(2)}px, calc(${y.toFixed(2)}px - 50%)) rotate(${rot.toFixed(3)}deg) scale(${scale.toFixed(3)})`;
+      // WebKitGTK (the desktop runtime) fails to parse the reference's
+      // `calc(<pixels> - 50%)` inside translate(). Keep the same geometry,
+      // but express the self-centering as a separate transform so every item
+      // retains its own vertical position instead of collapsing at 50%.
+      el.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) translateY(-50%) rotate(${rot.toFixed(3)}deg)`;
       el.style.opacity = String(Math.max(cfg.minOpacity, 1 - dist * cfg.fade));
-      el.style.filter = cfg.blur > 0 ? `blur(${(dist * cfg.blur).toFixed(2)}px)` : 'none';
-      el.style.setProperty('--ow-p', Math.max(0, 1 - Math.min(dist, 1)).toFixed(4));
+      // Filters repaint text. Applying blur while the pointer is moving is
+      // the main cause of WebKitGTK jank, so retain the same resting visual
+      // without repeatedly repainting every label during a drag.
+      el.style.filter = settled && cfg.blur > 0 ? `blur(${(dist * cfg.blur).toFixed(2)}px)` : 'none';
     }
-  }, []);
-
-  const runFrame = useCallback((now: number) => {
-    const dt = Math.min((now - lastRef.current) / 1000, 0.05);
-    lastRef.current = now;
-    const cfg = cfgRef.current;
-    if (!cfg || cfg.count === 0) {
-      rafRef.current = null;
-      return;
-    }
-    const tau = Math.max(cfg.smoothing, 1) / 1000;
-    const k = 1 - Math.exp(-dt / tau);
-
-    const target = typeof targetRef.current === 'number' && !isNaN(targetRef.current) ? targetRef.current : 0;
-    const cur = typeof posRef.current === 'number' && !isNaN(posRef.current) ? posRef.current : 0;
-    let next = cur + (target - cur) * k;
-    if (isNaN(next)) next = target;
-    const settled = Math.abs(target - next) < 0.001;
-    if (settled) next = target;
-    posRef.current = next;
-
-    updateLayout(next);
 
     rafRef.current = settled ? null : requestAnimationFrame(runFrame);
-  }, [updateLayout]);
+  }, []);
 
   const startLoop = useCallback(() => {
     if (rafRef.current != null) return;
@@ -185,6 +197,8 @@ const OptionWheel = ({
     rafRef.current = requestAnimationFrame(runFrame);
   }, [runFrame]);
 
+  // Optional tick on selection change, throttled so fast scrolling can't spam
+  // it, and with playback failures (e.g. autoplay policies) silently ignored.
   const playTick = useCallback(() => {
     const { soundUrl, soundVolume } = cfgRef.current;
     if (!soundUrl) return;
@@ -205,34 +219,38 @@ const OptionWheel = ({
   const applyTarget = useCallback(
     (value: number, snap: boolean) => {
       const cfg = cfgRef.current;
-      if (!cfg || cfg.count === 0) return;
+      if (cfg.count === 0) return;
       let v = value;
-      if (isNaN(v)) v = 0;
       if (!cfg.loop) v = Math.min(Math.max(v, 0), Math.max(cfg.count - 1, 0));
       if (snap) v = Math.round(v);
       targetRef.current = v;
       const idx = ((Math.round(v) % cfg.count) + cfg.count) % cfg.count;
-      if (idx !== selectedRef.current || isNaN(selectedRef.current)) {
+      if (idx !== selectedRef.current) {
         selectedRef.current = idx;
-        setSelectedIndex(idx);
         onChangeRef.current?.(idx, cfg.items[idx]);
         playTick();
+      }
+      if (snap) {
+        setSelectedIndex(idx);
+        onSettledRef.current?.(idx, cfg.items[idx]);
       }
       startLoop();
     },
     [startLoop, playTick]
   );
 
-  // Synchronize Wheel & Touchpad scrolling
+  // Wheel / touchpad scrolling, registered manually so it can be non-passive.
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const cfg = cfgRef.current;
-      if (!cfg || cfg.count === 0) return;
+      if (cfg.count === 0) return;
       const delta = e.deltaMode === 1 ? e.deltaY * 24 : e.deltaY;
-      const step = Math.max(-2, Math.min(2, delta / cfg.rowH));
+      // Cap each event at one step so notchy mouse wheels move exactly one
+      // option per click, while touchpads still scroll continuously.
+      const step = Math.max(-1, Math.min(1, delta / cfg.rowH));
       applyTarget(targetRef.current + step, false);
       if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
       wheelTimerRef.current = setTimeout(() => applyTarget(targetRef.current, true), 140);
@@ -258,16 +276,13 @@ const OptionWheel = ({
       const dy = e.clientY - drag.y;
       if (!dragMovedRef.current && Math.abs(dy) > 4) {
         dragMovedRef.current = true;
+        // Capture only once a real drag starts, so plain clicks still reach
+        // the items and navigate to them.
         rootRef.current?.setPointerCapture(drag.id);
       }
-      if (dragMovedRef.current) {
-        const nextVal = drag.start - dy / cfgRef.current.rowH;
-        applyTarget(nextVal, false);
-        // Force synchronous layout update on manual drag for instant responsiveness
-        updateLayout(nextVal);
-      }
+      if (dragMovedRef.current) applyTarget(drag.start - dy / cfgRef.current.rowH, false);
     },
-    [applyTarget, updateLayout]
+    [applyTarget]
   );
 
   const handlePointerEnd = useCallback(() => {
@@ -304,34 +319,34 @@ const OptionWheel = ({
     [applyTarget]
   );
 
-  const itemsJoin = items.join('|');
+  useEffect(() => {
+    activeElementIndexRef.current = null;
+    applyTarget(targetRef.current, false);
+  }, [items, fontSize, spacing, curve, tilt, blur, fade, minOpacity, side, loop, smoothing, applyTarget]);
 
-  // Layout synchronization on items/params changes
+  // `defaultSelected` is also the controlled entry point used when playback
+  // changes outside the wheel (for example, from the search view).
   useEffect(() => {
     const cfg = cfgRef.current;
-    if (cfg && cfg.count > 0) {
-      const currentVal = typeof targetRef.current === 'number' && !isNaN(targetRef.current) ? targetRef.current : defaultSelected;
-      const boundedVal = cfg.loop ? currentVal : Math.min(Math.max(currentVal, 0), cfg.count - 1);
-      applyTarget(boundedVal, false);
-      updateLayout(boundedVal);
-    }
-  }, [itemsJoin, fontSize, spacing, curve, tilt, blur, fade, minOpacity, side, loop, smoothing, applyTarget, updateLayout]);
+    if (cfg.count === 0) return;
 
-  // Layout synchronization on selected item changes
-  useEffect(() => {
-    const cfg = cfgRef.current;
-    if (cfg && cfg.count > 0) {
-      const boundedSelected = typeof defaultSelected === 'number' && !isNaN(defaultSelected) ? defaultSelected : 0;
-      const boundedVal = cfg.loop ? boundedSelected : Math.min(Math.max(boundedSelected, 0), cfg.count - 1);
-      applyTarget(boundedVal, true);
-      updateLayout(boundedVal);
-    }
-  }, [defaultSelected, applyTarget, updateLayout]);
+    const index = ((Math.round(defaultSelected) % cfg.count) + cfg.count) % cfg.count;
+    const currentIndex = ((Math.round(targetRef.current) % cfg.count) + cfg.count) % cfg.count;
+    if (index === currentIndex) return;
 
-  // Ensure perfect layout positioning immediately on mount/render
-  useLayoutEffect(() => {
-    updateLayout(posRef.current);
-  });
+    let next = index;
+    if (cfg.loop && cfg.count > 1) {
+      let distance = index - currentIndex;
+      if (distance > cfg.count / 2) distance -= cfg.count;
+      else if (distance < -cfg.count / 2) distance += cfg.count;
+      next = targetRef.current + distance;
+    }
+
+    selectedRef.current = index;
+    setSelectedIndex(index);
+    targetRef.current = next;
+    startLoop();
+  }, [defaultSelected, items, loop, startLoop]);
 
   useEffect(
     () => () => {
@@ -370,14 +385,9 @@ const OptionWheel = ({
           }}
           role="option"
           aria-selected={selectedIndex === index}
-          className={`absolute top-1/2 cursor-pointer whitespace-nowrap leading-none will-change-[transform,opacity,filter] [font-size:var(--ow-font-size)] ${selectedIndex === index ? 'font-semibold' : 'font-light'}`}
-          style={{
-            left: side === 'left' ? 'var(--ow-inset)' : undefined,
-            right: side === 'right' ? 'var(--ow-inset)' : undefined,
-            transformOrigin: side === 'left' ? 'left center' : 'right center',
-            color: 'color-mix(in srgb, var(--ow-active-color) calc(var(--ow-p, 0) * 100%), var(--ow-text-color))',
-            transition: 'font-weight 0.2s ease, text-shadow 0.2s ease'
-          }}
+          className={`absolute top-1/2 cursor-pointer whitespace-nowrap leading-none will-change-[transform,opacity] [font-size:var(--ow-font-size)] [color:var(--ow-text-color)] ${
+            side === 'right' ? 'right-[var(--ow-inset)] origin-right' : 'left-[var(--ow-inset)] origin-left'
+          } ${selectedIndex === index ? 'font-medium' : 'font-extralight'}`}
           onClick={() => handleItemClick(index)}
         >
           {label}

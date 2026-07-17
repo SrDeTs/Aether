@@ -134,6 +134,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const masterGainNodeRef = useRef<GainNode | null>(null);
   const preAmpGainNodeRef = useRef<GainNode | null>(null);
   const filterNodesRef = useRef<BiquadFilterNode[]>([]);
   const bassBoostFilterRef = useRef<BiquadFilterNode | null>(null);
@@ -153,6 +154,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       // 1. Create source
       const source = ctx.createMediaElementSource(audioRef.current);
       sourceNodeRef.current = source;
+
+      // Once playback is routed through Web Audio, this is the only output
+      // gain. It keeps the app volume control authoritative.
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = isMuted ? 0 : volume;
+      masterGainNodeRef.current = masterGain;
+      audioRef.current.volume = 1;
 
       // 2. Pre-amp gain node
       const preAmp = ctx.createGain();
@@ -227,18 +235,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         lastNode = filter;
       }
 
-      // Reverb path: lastNode -> delay -> delayMix -> destination
+      // Reverb path: lastNode -> delay -> delayMix -> master output.
       lastNode.connect(delay);
       delay.connect(delayMix);
-      delayMix.connect(ctx.destination);
+      delayMix.connect(masterGain);
 
-      // Direct dry path: lastNode -> analyser -> destination
+      // The dry signal and the reverb share one AudioContext destination.
       lastNode.connect(analyser);
-      analyser.connect(ctx.destination);
+      analyser.connect(masterGain);
+      masterGain.connect(ctx.destination);
     } catch (err) {
       console.error("Failed to initialize Web Audio Equalizer:", err);
     }
-  }, [eqEnabled, eqPreamp, eqGains, eqBassBoost, eqVocalBoost, eqReverb]);
+  }, [eqEnabled, eqPreamp, eqGains, eqBassBoost, eqVocalBoost, eqReverb, isMuted, volume]);
 
   // Refs to hold latest values for event listeners (avoids stale closures)
   const queueRef = useRef<TrackInfo[]>([]);
@@ -262,8 +271,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setError(null);
     setIsLoading(true);
 
-    // Initialize Web Audio API if needed and resume
-    if (!audioContextRef.current) {
+    // Normal playback stays on the media element. The Web Audio graph is only
+    // needed when the equalizer is enabled.
+    if (eqEnabled && !audioContextRef.current) {
       initAudioContext();
     }
     if (audioContextRef.current && audioContextRef.current.state === "suspended") {
@@ -338,13 +348,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Update volume
+  // Update volume in the active output path.
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
+    const level = isMuted ? 0 : volume;
+    const audio = audioRef.current;
+    const masterGain = masterGainNodeRef.current;
+
+    if (masterGain && audioContextRef.current) {
+      masterGain.gain.setTargetAtTime(level, audioContextRef.current.currentTime, 0.01);
+      if (audio) audio.volume = 1;
+    } else if (audio) {
+      audio.volume = level;
     }
     localStorage.setItem("player_volume", String(volume));
   }, [volume, isMuted]);
+
+  useEffect(() => {
+    if (!eqEnabled || !currentTrack || !audioRef.current || audioContextRef.current) return;
+    initAudioContext();
+  }, [eqEnabled, currentTrack, initAudioContext]);
 
   const play = useCallback((track: TrackInfo) => {
     const tracks = [track];
@@ -366,7 +388,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const resume = useCallback(() => {
     const audio = audioRef.current;
     if (audio && currentTrack) {
-      if (!audioContextRef.current) {
+      if (eqEnabled && !audioContextRef.current) {
         initAudioContext();
       }
       if (audioContextRef.current && audioContextRef.current.state === "suspended") {
@@ -374,7 +396,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       audio.play().catch((e) => setError("Failed to resume: " + e.message));
     }
-  }, [currentTrack, initAudioContext]);
+  }, [currentTrack, eqEnabled, initAudioContext]);
 
   const togglePlay = useCallback(() => {
     if (isPlaying) pause();

@@ -1,10 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Play, Pause, Music, Disc3 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Equalizer } from "./Equalizer";
+import { Music } from "lucide-react";
 import { useJellyfin } from "@/hooks/use-jellyfin";
-import { usePlayer, formatTime, trackFromJellyfinItem } from "@/hooks/use-player";
+import { usePlayer, trackFromJellyfinItem } from "@/hooks/use-player";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { JellyfinItem } from "@/lib/jellyfin";
 import OptionWheel from "@/components/ui/OptionWheel";
@@ -37,7 +35,7 @@ function TrackSkeletonRow({ index, style }: { index: number; style: React.CSSPro
 
 export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }: TrackListProps) {
   const { getImageUrl } = useJellyfin();
-  const { playQueue, currentTrack, isPlaying } = usePlayer();
+  const { playQueue, currentTrack } = usePlayer();
 
   // Ordena músicas em ordem alfabética por nome
   const sortedTracks = useMemo(() => {
@@ -76,26 +74,6 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
     );
   }, [sortedTracks, albumId, albumName, albumArtist, getImageUrl]);
 
-  const handlePlayAll = () => {
-    if (trackItems.length > 0) {
-      playQueue(trackItems, 0);
-    }
-  };
-
-  const handleTrackClick = (index: number) => {
-    playQueue(trackItems, index);
-  };
-
-  const [targetPlayIndex, setTargetPlayIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (targetPlayIndex === null) return;
-    const timer = setTimeout(() => {
-      playQueue(trackItems, targetPlayIndex);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [targetPlayIndex, trackItems, playQueue]);
-
   const currentTrackIndex = useMemo(() => {
     if (!currentTrack) return 0;
     const idx = trackItems.findIndex((t) => t.id === currentTrack.id);
@@ -105,6 +83,11 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
   const formattedWheelItems = useMemo(() => {
     return trackItems.map((track) => `${track.name} • ${track.artist}`);
   }, [trackItems]);
+
+  const handleWheelSettled = useCallback((index: number) => {
+    if (index === currentTrackIndex) return;
+    playQueue(trackItems, index);
+  }, [currentTrackIndex, playQueue, trackItems]);
 
   if (isLoading) {
     return (
@@ -157,11 +140,7 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
         inset={60}
         loop={true}
         draggable={true}
-        onChange={(index) => {
-          if (index !== currentTrackIndex) {
-            setTargetPlayIndex(index);
-          }
-        }}
+        onSettled={handleWheelSettled}
         className="w-full h-full"
       />
     </div>

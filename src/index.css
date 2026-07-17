@@ -160,6 +160,17 @@ body::after {
   will-change: transform, backdrop-filter;
 }
 
+/* The main player pane covers most of the viewport. Keeping a live backdrop
+   blur here forces WebKit to re-blur the animated shader beneath it on every
+   frame, so use the same dark glass appearance with an opaque surface. */
+@utility player-surface {
+  background: oklch(0.09 0.012 280 / 0.94);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    0 1px 0 0 oklch(1 0 0 / 0.05) inset,
+    0 8px 32px oklch(0 0 0 / 0.3);
+}
+
 @utility glass-strong {
   background: oklch(0.18 0.03 280 / 0.5);
   backdrop-filter: blur(24px);
@@ -350,4 +361,3 @@ input[type="range"].slider-progress::-moz-range-thumb {
   transform-origin: bottom;
   animation: css-equalizer 1s ease-in-out infinite;
 }
-

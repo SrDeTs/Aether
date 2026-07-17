@@ -331,7 +331,7 @@ export default function Player() {
           onViewChange={handleViewChange}
         />
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden glass rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none flex flex-col">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden player-surface rounded-2xl md:rounded-3xl border border-white/[0.04] shadow-2xl shadow-black/30 scrollbar-none flex flex-col">
           <div className="p-6 md:p-8 max-w-7xl mx-auto relative z-10 w-full flex-1 flex flex-col">
             <AnimatePresence mode="wait">
               <motion.div
