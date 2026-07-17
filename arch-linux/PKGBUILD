@@ -6,7 +6,7 @@ pkgdesc="Jellyfin Player Music"
 arch=('x86_64')
 url="https://github.com/SrDeTs/Aether"
 license=('MIT')
-depends=('gtk3' 'webkit2gtk-4.1' 'libsoup3')
+depends=('gtk3' 'webkit2gtk-4.1' 'libsoup3' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad' 'gst-libav')
 source=("Aether.desktop" "Aether.png")
 sha256sums=('SKIP' 'SKIP')
 
