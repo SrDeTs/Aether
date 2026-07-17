@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Disc3, Mic2, Music, ListMusic, Palette, Volume2, Info, Sparkles, Sliders, RotateCcw, Settings2, Search, Loader2, X } from "lucide-react";
-import iconWebp from "../../assets/icon-bg.png";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { jellyfinClient } from "@/lib/jellyfin";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { usePlayer, trackFromJellyfinItem } from "@/hooks/use-player";
@@ -13,7 +13,6 @@ import { NowPlayingBar } from "@/components/player/NowPlayingBar";
 import { CachedImage } from "@/components/player/CachedImage";
 import { CylinderCarousel } from "@/components/ui/cylinder-carousel";
 import AnimatedFoldGradient from "@/components/FoldGradient/AnimatedFoldGradient";
-import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -438,7 +437,7 @@ export default function Player() {
                                 trackLayout === "list" ? "bg-primary text-primary-foreground border-transparent hover:bg-primary/90" : "hover:bg-white/[0.06] text-muted-foreground hover:text-foreground"
                               )}
                             >
-                              Lista
+                              Roda de Opções
                             </Button>
                             <Button
                               variant="outline"
@@ -770,7 +769,9 @@ function SettingsView() {
 
       {tab === "sobre" && (
         <div className="glass-strong rounded-2xl p-5 space-y-4 text-center">
-          <img src={iconWebp} className="w-16 h-16 rounded-2xl mx-auto shadow-xl" alt="Aether" />
+          <div className="w-16 h-16 rounded-2xl mx-auto shadow-xl bg-gradient-to-tr from-purple-600/30 to-indigo-600/30 border border-white/10 flex items-center justify-center">
+            <Disc3 className="w-8 h-8 text-primary animate-[spin_10s_linear_infinite]" />
+          </div>
           <div><h2 className="text-lg font-bold">Aether</h2><p className="text-xs text-muted-foreground">v1.0.0</p></div>
           <p className="text-xs text-muted-foreground/60 max-w-md mx-auto leading-relaxed">
             Um reprodutor musical moderno para servidores Jellyfin.<br /> Com temas dinâmicos, efeitos glassmorphism e integração direta.

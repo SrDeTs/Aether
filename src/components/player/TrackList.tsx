@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Play, Pause, Music, Disc3 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { useJellyfin } from "@/hooks/use-jellyfin";
 import { usePlayer, formatTime, trackFromJellyfinItem } from "@/hooks/use-player";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { JellyfinItem } from "@/lib/jellyfin";
+import OptionWheel from "@/components/ui/OptionWheel";
 
 interface TrackListProps {
   tracks: JellyfinItem[];
@@ -85,6 +86,26 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
     playQueue(trackItems, index);
   };
 
+  const [targetPlayIndex, setTargetPlayIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (targetPlayIndex === null) return;
+    const timer = setTimeout(() => {
+      playQueue(trackItems, targetPlayIndex);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [targetPlayIndex, trackItems, playQueue]);
+
+  const currentTrackIndex = useMemo(() => {
+    if (!currentTrack) return 0;
+    const idx = trackItems.findIndex((t) => t.id === currentTrack.id);
+    return idx !== -1 ? idx : 0;
+  }, [trackItems, currentTrack]);
+
+  const formattedWheelItems = useMemo(() => {
+    return trackItems.map((track) => `${track.name} • ${track.artist}`);
+  }, [trackItems]);
+
   if (isLoading) {
     return (
       <div className="space-y-1">
@@ -116,45 +137,33 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
   }
 
   return (
-    <div>
-      <div className="space-y-0.5">
-        {trackItems.map((track, index) => {
-          const isCurrentTrack = currentTrack?.id === track.id;
-          return (
-            <motion.button
-              key={track.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3, delay: index * 0.02 }}
-              onClick={() => handleTrackClick(index)}
-              className={cn(
-                "w-full flex items-center gap-4 px-3.5 py-2.5 rounded-lg group transition-all duration-200",
-                isCurrentTrack
-                  ? "bg-primary/10 border border-primary/20"
-                  : "hover:bg-white/[0.04] border border-transparent"
-              )}
-            >
-              <div className="flex-1 text-left min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className={cn(
-                    "text-sm truncate leading-tight",
-                    isCurrentTrack ? "text-primary font-medium" : "text-foreground"
-                  )}>
-                    {track.name}
-                  </p>
-                </div>
-                <p className="text-xs text-muted-foreground truncate mt-1">
-                  {track.artist}
-                </p>
-              </div>
+    <div className="relative w-full h-[460px] md:h-[500px] flex items-center justify-center overflow-hidden">
+      {/* Ambient glow behind/centered with the active element of the wheel */}
+      <div className="absolute left-[60px] md:left-[100px] top-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
 
-              <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                {formatTime(track.duration)}
-              </span>
-            </motion.button>
-          );
-        })}
-      </div>
+      <OptionWheel
+        items={formattedWheelItems}
+        defaultSelected={currentTrackIndex}
+        textColor="rgba(255, 255, 255, 0.35)"
+        activeColor="var(--primary)"
+        side="left"
+        fontSize={1.7}
+        spacing={1.8}
+        curve={1.2}
+        tilt={6}
+        blur={2}
+        fade={0.32}
+        smoothing={220}
+        inset={60}
+        loop={true}
+        draggable={true}
+        onChange={(index) => {
+          if (index !== currentTrackIndex) {
+            setTargetPlayIndex(index);
+          }
+        }}
+        className="w-full h-full"
+      />
     </div>
   );
 }

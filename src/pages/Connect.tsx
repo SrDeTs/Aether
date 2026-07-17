@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import { Server, User, Lock, AlertCircle, Check, Loader } from "lucide-react";
-import iconWebp from "../../assets/icon-bg.png";
+import { Server, User, Lock, AlertCircle, Check, Loader, Disc3 } from "lucide-react";
 import { useJellyfin } from "@/hooks/use-jellyfin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,7 +68,9 @@ export default function Connect() {
         className="w-full max-w-md relative z-10"
       >
         <div className="flex flex-col items-center mb-6">
-          <img src={iconWebp} className="w-34 h-34 rounded-3xl shadow-2xl mb-4 object-cover" alt="Aether" />
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-purple-600/20 to-indigo-600/20 border border-white/10 flex items-center justify-center shadow-2xl mb-4">
+            <Disc3 className="w-12 h-12 text-primary animate-[spin_12s_linear_infinite]" />
+          </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Aether</h1>
         </div>
 
