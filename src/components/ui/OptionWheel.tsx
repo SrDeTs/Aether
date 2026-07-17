@@ -31,6 +31,7 @@ interface WheelConfig {
   count: number;
   items: string[];
   rowH: number;
+  labelH: number;
   curve: number;
   tilt: number;
   blur: number;
@@ -88,6 +89,7 @@ const OptionWheel = ({
   const targetRef = useRef(defaultSelected);
   const rafRef = useRef<number | null>(null);
   const lastRef = useRef(0);
+  const rootHeightRef = useRef(0);
   const cfgRef = useRef<WheelConfig>({} as WheelConfig);
   const onChangeRef = useRef(onChange);
   const onSettledRef = useRef(onSettled);
@@ -112,6 +114,7 @@ const OptionWheel = ({
     count: items.length,
     items,
     rowH: Math.max(fontSize * spacing * remPx, 1),
+    labelH: Math.max(fontSize * remPx, 1),
     curve,
     tilt,
     blur,
@@ -180,11 +183,16 @@ const OptionWheel = ({
         x = -mirror * R * (1 - Math.cos(ang)) * cfg.curve;
         rot = (mirror * ang * 180) / Math.PI;
       }
-      // WebKitGTK (the desktop runtime) fails to parse the reference's
-      // `calc(<pixels> - 50%)` inside translate(). Keep the same geometry,
-      // but express the self-centering as a separate transform so every item
-      // retains its own vertical position instead of collapsing at 50%.
-      el.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) translateY(-50%) rotate(${rot.toFixed(3)}deg)`;
+      // The desktop WebKit renderer has rejected vertical text transforms in
+      // this view. Position vertically in real pixels and reserve transform
+      // for the horizontal curve/rotation; an invalid transform can no
+      // longer collapse every item into the middle of the wheel.
+      if (rootHeightRef.current > 0) {
+        el.style.top = `${(rootHeightRef.current / 2 + y - cfg.labelH / 2).toFixed(2)}px`;
+      }
+      const transform = `translate3d(${x.toFixed(2)}px, 0, 0) rotate(${rot.toFixed(3)}deg)`;
+      el.style.transform = transform;
+      el.style.webkitTransform = transform;
       el.style.opacity = String(Math.max(cfg.minOpacity, 1 - dist * cfg.fade));
       if (updateBlur) {
         let blurDelta = i - activeIndex;
@@ -214,6 +222,23 @@ const OptionWheel = ({
     lastRef.current = performance.now();
     rafRef.current = requestAnimationFrame(runFrame);
   }, [runFrame]);
+
+  // Reading the wheel height is isolated to mount/resize. The animation loop
+  // only consumes this cached number, avoiding layout reads while dragging.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+
+    const updateHeight = () => {
+      rootHeightRef.current = el.clientHeight;
+      startLoop();
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [startLoop]);
 
   // Optional tick on selection change, throttled so fast scrolling can't spam
   // it, and with playback failures (e.g. autoplay policies) silently ignored.
