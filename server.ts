@@ -5,7 +5,7 @@ import { Readable } from "stream";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = 5173;
 
   // Use JSON middleware with limit to handle standard JSON payloads
   app.use(express.json({ limit: "10mb" }));
