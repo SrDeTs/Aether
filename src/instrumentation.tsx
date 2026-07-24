@@ -1,10 +1,5 @@
-import React from "react";
+import type { ReactNode } from "react";
 
-export function InstrumentationProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function InstrumentationProvider({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
-

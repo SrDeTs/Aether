@@ -5,6 +5,7 @@ import { useJellyfin } from "@/hooks/use-jellyfin";
 import { usePlayer, trackFromJellyfinItem } from "@/hooks/use-player";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { JellyfinItem } from "@/lib/jellyfin";
+import { compareItemNames } from "@/lib/utils";
 import OptionWheel from "@/components/ui/OptionWheel";
 
 interface TrackListProps {
@@ -39,27 +40,7 @@ export function TrackList({ tracks, isLoading, albumId, albumName, albumArtist }
 
   // Ordena músicas em ordem alfabética por nome
   const sortedTracks = useMemo(() => {
-    const cleanForSort = (str: string) => {
-      if (!str) return "";
-      return str
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // remove accents/diacritics
-        .toLowerCase()
-        .replace(/^[^a-z0-9]+/, "") // remove leading symbols, punctuation, non-alphanumeric characters
-        .trim();
-    };
-
-    return [...tracks].sort((a, b) => {
-      const nameA = a.Name || "";
-      const nameB = b.Name || "";
-      const cleanA = cleanForSort(nameA);
-      const cleanB = cleanForSort(nameB);
-      
-      if (cleanA && cleanB) {
-        return cleanA.localeCompare(cleanB, "pt-BR");
-      }
-      return nameA.toLowerCase().localeCompare(nameB.toLowerCase(), "pt-BR");
-    });
+    return [...tracks].sort(compareItemNames);
   }, [tracks]);
 
   const trackItems = useMemo(() => {

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect, CSSProperties } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo, CSSProperties } from 'react';
 
 type Side = 'left' | 'right';
 
@@ -106,7 +106,8 @@ const OptionWheel = ({
   const [selectedIndex, setSelectedIndex] = useState(defaultSelected);
   const [isDragging, setIsDragging] = useState(false);
 
-  const remPx = typeof window !== 'undefined' ? parseFloat(getComputedStyle(document.documentElement).fontSize) || 16 : 16;
+  // Compute rem-to-px once (avoids getComputedStyle on every render)
+  const remPx = useMemo(() => typeof window !== 'undefined' ? parseFloat(getComputedStyle(document.documentElement).fontSize) || 16 : 16, []);
 
   onChangeRef.current = onChange;
   onSettledRef.current = onSettled;

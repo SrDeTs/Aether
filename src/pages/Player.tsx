@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RubberBandSlider } from "@/components/ui/RubberBandSlider";
-import { cn } from "@/lib/utils";
+import { cn, compareItemNames } from "@/lib/utils";
 import type { JellyfinItem } from "@/lib/jellyfin";
 import { EqualizerView } from "@/components/player/EqualizerView";
 
@@ -187,27 +187,7 @@ export default function Player() {
   }, [searchQuery, searchLoading, loading]);
 
   const sortedTracks = useMemo(() => {
-    const cleanForSort = (str: string) => {
-      if (!str) return "";
-      return str
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .replace(/^[^a-z0-9]+/, "")
-        .trim();
-    };
-
-    return [...activeTracksSource].sort((a, b) => {
-      const nameA = a.Name || "";
-      const nameB = b.Name || "";
-      const cleanA = cleanForSort(nameA);
-      const cleanB = cleanForSort(nameB);
-      
-      if (cleanA && cleanB) {
-        return cleanA.localeCompare(cleanB, "pt-BR");
-      }
-      return nameA.toLowerCase().localeCompare(nameB.toLowerCase(), "pt-BR");
-    });
+    return [...activeTracksSource].sort(compareItemNames);
   }, [activeTracksSource]);
 
   const currentTrackIndex = useMemo(() => {
@@ -453,28 +433,28 @@ export default function Player() {
 
                         <div className="flex items-center justify-end gap-4 pb-4">
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setTrackLayout("list")}
-                              className={cn(
-                                "text-xs rounded-xl border-white/[0.06] bg-white/[0.02] h-8 px-3 transition-all duration-200",
-                                trackLayout === "list" ? "bg-primary text-primary-foreground border-transparent hover:bg-primary/90" : "hover:bg-white/[0.06] text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              Roda de Opções
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setTrackLayout("carousel")}
-                              className={cn(
-                                "text-xs rounded-xl border-white/[0.06] bg-white/[0.02] h-8 px-3 transition-all duration-200",
-                                trackLayout === "carousel" ? "bg-primary text-primary-foreground border-transparent hover:bg-primary/90" : "hover:bg-white/[0.06] text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              Carrossel 3D
-                            </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setTrackLayout("list")}
+                                className={cn(
+                                  "text-xs rounded-xl border-white/[0.06] bg-white/[0.02] h-8 px-3 transition-all duration-200",
+                                  trackLayout === "list" ? "bg-primary text-primary-foreground border-transparent hover:bg-primary/90" : "hover:bg-white/[0.06] text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Lista
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setTrackLayout("carousel")}
+                                className={cn(
+                                  "text-xs rounded-xl border-white/[0.06] bg-white/[0.02] h-8 px-3 transition-all duration-200",
+                                  trackLayout === "carousel" ? "bg-primary text-primary-foreground border-transparent hover:bg-primary/90" : "hover:bg-white/[0.06] text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Carrossel
+                              </Button>
 
                             {trackLayout === "carousel" && activeTracksSource.length > 0 && (
                               <div className="flex items-center gap-1.5 ml-2 border-l border-white/[0.08] pl-3">
@@ -501,96 +481,73 @@ export default function Player() {
                           }}
                           className="w-full flex-1 flex flex-col relative overflow-hidden"
                         >
-                          <AnimatePresence mode="popLayout" initial={false}>
-                            {loading && !tracks.length ? (
-                              trackLayout === "list" ? (
-                                <motion.div
-                                  key="loading-list"
-                                  initial={{ opacity: 0, y: 15 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -15 }}
-                                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                                  className="w-full flex-1 flex flex-col"
-                                >
-                                  <TrackList tracks={[]} isLoading={true} />
-                                </motion.div>
-                              ) : (
-                                <motion.div
-                                  key="loading-carousel"
-                                  initial={{ opacity: 0, scale: 0.92, y: 15 }}
-                                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                                  exit={{ opacity: 0, scale: 0.92, y: -15 }}
-                                  transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-                                  className="w-full py-6 relative flex-1 flex flex-col items-center justify-center min-h-[420px]"
-                                  style={{
-                                    WebkitMaskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)",
-                                    maskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)"
-                                  }}
-                                >
-                                  <div className="w-full max-w-5xl mx-auto flex items-center justify-center gap-6 relative px-4 select-none">
-                                    {/* Left Card skeleton */}
-                                    <div className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] md:w-[240px] md:h-[240px] rounded-2xl border border-white/[0.04] bg-white/[0.02] shadow-xl shrink-0 opacity-40 scale-85 blur-[1px] animate-pulse" />
-                                    
-                                    {/* Center Card skeleton */}
-                                    <div className="w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] md:w-[300px] md:h-[300px] rounded-2xl border border-white/[0.08] bg-white/[0.04] shadow-2xl relative shrink-0 flex flex-col justify-end p-6 overflow-hidden animate-pulse">
-                                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                      <div className="relative z-10 space-y-2">
-                                        <div className="h-4 w-32 bg-white/20 rounded-md" />
-                                        <div className="h-3 w-20 bg-white/10 rounded-md" />
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Right Card skeleton */}
-                                    <div className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] md:w-[240px] md:h-[240px] rounded-2xl border border-white/[0.04] bg-white/[0.02] shadow-xl shrink-0 opacity-40 scale-85 blur-[1px] animate-pulse" />
-                                  </div>
-                                </motion.div>
-                              )
-                            ) : !activeTracksSource.length ? (
-                              searchLoading ? (
-                                <motion.div
-                                  key="search-loading"
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  exit={{ opacity: 0 }}
-                                  className="flex flex-col items-center justify-center py-20 gap-3 flex-1 w-full"
-                                >
-                                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                                  <p className="text-xs text-muted-foreground/60 font-mono">Buscando...</p>
-                                </motion.div>
-                              ) : (
-                                <motion.div
-                                  key="empty"
-                                  initial={{ opacity: 0, scale: 0.98 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  exit={{ opacity: 0, scale: 0.98 }}
-                                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                                  className="flex flex-col items-center justify-center py-20 gap-3 flex-1 w-full"
-                                >
-                                  <div className="glass-strong rounded-full p-4">
-                                    <Music className="w-8 h-8 text-muted-foreground/40" />
-                                  </div>
-                                  <p className="text-muted-foreground text-sm font-medium">Nenhuma música encontrada</p>
-                                </motion.div>
-                              )
-                            ) : trackLayout === "list" ? (
-                              <motion.div
-                                key="list"
-                                initial={{ opacity: 0, y: 15 }}
-                                animate={{ opacity: searchLoading ? 0.5 : 1, y: 0 }}
-                                exit={{ opacity: 0, y: -15 }}
-                                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                                className={cn("w-full flex-1 transition-opacity duration-200", searchLoading && "pointer-events-none")}
-                              >
+                           {loading && !tracks.length ? (
+                             trackLayout === "list" ? (
+                               <div className="w-full flex-1 flex flex-col">
+                                 <TrackList tracks={[]} isLoading={true} />
+                               </div>
+                             ) : (
+                               <div
+                                 className="w-full py-6 relative flex-1 flex flex-col items-center justify-center min-h-[420px]"
+                                 style={{
+                                   WebkitMaskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)",
+                                   maskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)"
+                                 }}
+                               >
+                                 <div className="w-full max-w-5xl mx-auto flex items-center justify-center gap-6 relative px-4 select-none">
+                                   <div className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] md:w-[240px] md:h-[240px] rounded-2xl border border-white/[0.04] bg-white/[0.02] shadow-xl shrink-0 opacity-40 scale-85 blur-[1px] animate-pulse" />
+                                   <div className="w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] md:w-[300px] md:h-[300px] rounded-2xl border border-white/[0.08] bg-white/[0.04] shadow-2xl relative shrink-0 flex flex-col justify-end p-6 overflow-hidden animate-pulse">
+                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                     <div className="relative z-10 space-y-2">
+                                       <div className="h-4 w-32 bg-white/20 rounded-md" />
+                                       <div className="h-3 w-20 bg-white/10 rounded-md" />
+                                     </div>
+                                   </div>
+                                   <div className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] md:w-[240px] md:h-[240px] rounded-2xl border border-white/[0.04] bg-white/[0.02] shadow-xl shrink-0 opacity-40 scale-85 blur-[1px] animate-pulse" />
+                                 </div>
+                               </div>
+                             )
+                           ) : !activeTracksSource.length ? (
+                             searchLoading ? (
+                               <div className="flex flex-col items-center justify-center py-20 gap-3 flex-1 w-full">
+                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                 <p className="text-xs text-muted-foreground/60 font-mono">Buscando...</p>
+                               </div>
+                             ) : (
+                               <div className="flex flex-col items-center justify-center py-20 gap-3 flex-1 w-full">
+                                 <div className="glass-strong rounded-full p-4">
+                                   <Music className="w-8 h-8 text-muted-foreground/40" />
+                                 </div>
+                                 <p className="text-muted-foreground text-sm font-medium">Nenhuma música encontrada</p>
+                               </div>
+                             )
+                           ) : trackLayout === "list" ? (
+                              <div className={cn("w-full flex-1", searchLoading && "pointer-events-none opacity-50 transition-opacity duration-200")}>
                                 <TrackList tracks={sortedTracks} isLoading={false} />
-                              </motion.div>
-                            ) : (
-                              <motion.div
-                                key="carousel"
-                                initial={{ opacity: 0, scale: 0.92, y: 15 }}
-                                animate={{ opacity: searchLoading ? 0.5 : 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.92, y: -15 }}
-                                transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-                                className={cn("w-full py-6 relative flex-1 flex flex-col items-center justify-center min-h-[420px] transition-opacity duration-200", searchLoading && "pointer-events-none")}
+                                {hasMoreTracks && !searchQuery.trim() && (
+                                  <div
+                                    ref={(el) => {
+                                      if (!el) return;
+                                      const observer = new IntersectionObserver(
+                                        (entries) => {
+                                          if (entries[0]?.isIntersecting) loadMoreTracks();
+                                        },
+                                        { rootMargin: "200px" },
+                                      );
+                                      observer.observe(el);
+                                      const prev = (el as any)._io;
+                                      if (prev) prev.disconnect();
+                                      (el as any)._io = observer;
+                                    }}
+                                    className="flex items-center justify-center py-4 min-h-[40px]"
+                                  >
+                                    {loadingMoreTracks && <Loader2 className="w-4 h-4 text-primary animate-spin" />}
+                                  </div>
+                                )}
+                              </div>
+                           ) : (
+                              <div
+                                className={cn("w-full py-6 relative flex-1 flex flex-col items-center justify-center min-h-[420px]", searchLoading && "pointer-events-none opacity-50 transition-opacity duration-200")}
                                 style={{
                                   WebkitMaskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)",
                                   maskImage: "linear-gradient(to right, transparent, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, transparent)"
@@ -644,9 +601,8 @@ export default function Player() {
                                     );
                                   })}
                                 </CylinderCarousel>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                              </div>
+                           )}
                         </motion.div>
                       </div>
                     )}

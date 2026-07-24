@@ -5,7 +5,6 @@ interface JellyfinContextType {
   connected: boolean;
   serverUrl: string;
   userName: string;
-  serverName: string;
   isConnecting: boolean;
   error: string | null;
   musicLibraries: JellyfinView[];
@@ -35,7 +34,6 @@ export function JellyfinProvider({ children }: { children: ReactNode }) {
   const [serverUrl, setServerUrl] = useState(jellyfinClient.serverUrl);
   const [userId, setUserId] = useState(jellyfinClient.userId);
   const [userName, setUserName] = useState("");
-  const [serverName, setServerName] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [musicLibraries, setMusicLibraries] = useState<JellyfinView[]>([]);
@@ -173,7 +171,6 @@ export function JellyfinProvider({ children }: { children: ReactNode }) {
     connected,
     serverUrl,
     userName: userDisplayName,
-    serverName,
     isConnecting,
     error,
     musicLibraries,

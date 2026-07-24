@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useRef, useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { jellyfinClient } from "@/lib/jellyfin";
 
 export type RepeatMode = "off" | "all" | "one";
@@ -73,8 +73,13 @@ function formatDuration(ticks: number): number {
 
 export function formatTime(seconds: number): string {
   if (!seconds || !isFinite(seconds)) return "0:00";
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
+  const totalSecs = Math.floor(seconds);
+  const hours = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  if (hours > 0) {
+    return `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
@@ -767,6 +772,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           lastTrackIdRef.current,
           lastReportedTimeRef.current * 10000000
         );
+      }
+      // Close the AudioContext to free native audio resources on unmount
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
       }
     };
   }, []);

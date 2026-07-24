@@ -79,6 +79,8 @@ export function EqualizerView() {
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
+      // Reset transform before scaling to avoid cumulative scaling on repeated resizes
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
     };
 

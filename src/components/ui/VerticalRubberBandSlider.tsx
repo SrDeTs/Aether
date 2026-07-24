@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 interface VerticalRubberBandSliderProps {
@@ -25,7 +25,10 @@ export function VerticalRubberBandSlider({
   thumbClassName,
 }: VerticalRubberBandSliderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [visualProgress, setVisualProgress] = useState(0);
+  const [visualProgress, setVisualProgress] = useState(() => {
+    const range = max - min;
+    return range === 0 ? 0 : (value - min) / range;
+  });
   const trackRef = useRef<HTMLDivElement>(null);
 
   // Keep visual progress in sync with the incoming value when not dragging
@@ -92,10 +95,12 @@ export function VerticalRubberBandSlider({
       track.releasePointerCapture(upEvent.pointerId);
       track.removeEventListener("pointermove", handlePointerMove);
       track.removeEventListener("pointerup", handlePointerUp);
+      track.removeEventListener("pointercancel", handlePointerUp);
     };
 
     track.addEventListener("pointermove", handlePointerMove);
     track.addEventListener("pointerup", handlePointerUp);
+    track.addEventListener("pointercancel", handlePointerUp);
   };
 
   // Squash and stretch calculations for the rubber band aesthetic (vertical orientation)
