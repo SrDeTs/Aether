@@ -138,6 +138,24 @@ body::after {
   }
   body {
     @apply text-foreground;
+    /* App-like behavior: no native text selection across the UI.
+       Editable elements (inputs, textareas, contentEditable) re-enable it. */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  select,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    user-select: text;
+  }
+  /* Prevent the native image ghost when dragging */
+  img {
+    -webkit-user-drag: none;
+    user-drag: none;
   }
   button:not([disabled]),
   [role="button"]:not([disabled]) {

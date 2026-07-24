@@ -150,6 +150,10 @@ export default function Player() {
   const [searchResults, setSearchResults] = useState<JellyfinItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [hasMoreTracks, setHasMoreTracks] = useState(false);
+  const [loadingMoreTracks, setLoadingMoreTracks] = useState(false);
+  const tracksTotalRef = useRef<number>(0);
+  const tracksPageSize = 200;
 
   const artistsRef = useRef(artists);
   const tracksRef = useRef(tracks);
@@ -220,6 +224,8 @@ export default function Player() {
     setArtists([]);
     setTracks([]);
     setRecentTracks([]);
+    setHasMoreTracks(false);
+    tracksTotalRef.current = 0;
   }, [selectedLibrary?.Id]);
 
   useEffect(() => {
@@ -253,8 +259,10 @@ export default function Player() {
             break;
           }
           case "tracks": {
-            const result = await getTracks({ parentId, sortBy: "SortName" });
+            const result = await getTracks({ parentId, sortBy: "SortName", startIndex: 0, limit: tracksPageSize });
             setTracks(result.Items || []);
+            tracksTotalRef.current = result.TotalRecordCount || 0;
+            setHasMoreTracks((result.Items?.length || 0) < (result.TotalRecordCount || 0));
             break;
           }
           case "recent": {
@@ -272,6 +280,23 @@ export default function Player() {
 
     loadData();
   }, [activeView, selectedLibrary, connected, getArtists, getTracks, getRecentlyAdded]);
+
+  const loadMoreTracks = useCallback(async () => {
+    if (!connected || loadingMoreTracks || !hasMoreTracks) return;
+    const parentId = selectedLibrary?.Id;
+    const startIndex = tracks.length;
+    setLoadingMoreTracks(true);
+    try {
+      const result = await getTracks({ parentId, sortBy: "SortName", startIndex, limit: tracksPageSize });
+      const newItems = result.Items || [];
+      setTracks((prev) => [...prev, ...newItems]);
+      setHasMoreTracks((prev) => prev && (tracks.length + newItems.length) < (result.TotalRecordCount || 0));
+    } catch (err) {
+      console.error("Erro ao carregar mais faixas:", err);
+    } finally {
+      setLoadingMoreTracks(false);
+    }
+  }, [connected, loadingMoreTracks, hasMoreTracks, selectedLibrary?.Id, tracks.length, getTracks]);
 
   useEffect(() => {
     if (!connected || !searchQuery.trim()) {

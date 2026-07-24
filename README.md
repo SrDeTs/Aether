@@ -10,6 +10,7 @@ Desenvolvido com foco na estética visual e em interações fluidas, o JellyMusi
 
 *   **Conexão Jellyfin Direta:** Conecte-se com segurança ao seu servidor pessoal usando o endereço do servidor e suas credenciais (Usuário/Senha). Seus dados de login são armazenados de forma segura e localmente.
 *   **Reprodutor de Áudio Completo:** Controles clássicos de reprodução (reproduzir, pausar, pular, retroceder, controle de volume, barra de progresso interativa e modo de repetição/embaralhamento).
+*   **Modos de Repetição e Embaralhamento:** Repetir tudo, repetir uma faixa ou desativado, com persistência entre sessões. Embaralhamento inteligente que fixa a faixa atual e preserva a ordem original para restauração.
 *   **Fila de Reprodução Dinâmica:** Gerencie as faixas que serão tocadas a seguir, adicione músicas à fila ou limpe-a com facilidade.
 *   **Navegação Organizada:** Navegue facilmente por suas músicas organizadas por:
     *   **Álbuns:** Visualização em grade elegante das capas dos álbuns.
@@ -118,3 +119,25 @@ Certifique-se de ter instalado em sua máquina:
 ## 🔒 Segurança & Privacidade
 
 O JellyMusic se conecta **diretamente** ao endereço do servidor Jellyfin fornecido por você através de chamadas HTTPS/WSS seguras da API do Jellyfin. Nenhum dado de áudio ou informações de credenciais são enviados para servidores de terceiros ou armazenados fora do seu ambiente e do seu banco de dados privado do Convex.
+
+O proxy embutido (`server.ts`) inclui proteção contra SSRF: em produção, requisições para hosts em redes privadas/loopback são bloqueadas a menos que estejam na variável de ambiente `JELLYFIN_ALLOWED_HOSTS`. Em desenvolvimento, hosts locais são permitidos automaticamente, já que o proxy existe para acessar um servidor Jellyfin auto-hospedado na LAN.
+
+### Variáveis de Ambiente
+
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `JELLYFIN_ALLOWED_HOSTS` | Lista (separada por vírgulas) de hosts/IPs do Jellyfin que o proxy pode alcançar em produção | _(vazio — LAN permitida em dev)_ |
+
+### Atalhos de Teclado
+
+| Tecla | Ação |
+|---|---|
+| `Espaço` | Reproduzir / Pausar |
+| `←` / `→` | Retroceder / Avançar 10s |
+| `↑` / `↓` | Aumentar / Diminuir volume |
+| `M` | Mudo |
+| `N` / `P` | Próxima / Faixa anterior |
+| `R` | Alternar repetição (off → all → one) |
+| `S` | Alternar embaralhamento |
+
+Os atalhos são desativados automaticamente quando o foco está em campos de texto.

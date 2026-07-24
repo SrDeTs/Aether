@@ -14,6 +14,8 @@ export function useKeyboardShortcuts() {
     toggleMute,
     next,
     previous,
+    toggleRepeat,
+    toggleShuffle,
   } = usePlayer();
 
   // Create a mutable ref to store the latest player state and actions.
@@ -30,6 +32,8 @@ export function useKeyboardShortcuts() {
     toggleMute,
     next,
     previous,
+    toggleRepeat,
+    toggleShuffle,
   });
 
   // Keep stateRef in sync with the latest values
@@ -46,6 +50,8 @@ export function useKeyboardShortcuts() {
       toggleMute,
       next,
       previous,
+      toggleRepeat,
+      toggleShuffle,
     };
   }, [
     isPlaying,
@@ -59,6 +65,8 @@ export function useKeyboardShortcuts() {
     toggleMute,
     next,
     previous,
+    toggleRepeat,
+    toggleShuffle,
   ]);
 
   useEffect(() => {
@@ -106,6 +114,8 @@ export function useKeyboardShortcuts() {
         toggleMute: doToggleMute,
         next: doNext,
         previous: doPrevious,
+        toggleRepeat: doToggleRepeat,
+        toggleShuffle: doToggleShuffle,
       } = stateRef.current;
 
       // Handle configured playback control shortcuts
@@ -153,6 +163,12 @@ export function useKeyboardShortcuts() {
           } else if (key === "p") {
             // P for previous track
             doPrevious();
+          } else if (key === "r") {
+            // R for repeat mode toggle
+            doToggleRepeat();
+          } else if (key === "s") {
+            // S for shuffle toggle
+            doToggleShuffle();
           }
           break;
       }

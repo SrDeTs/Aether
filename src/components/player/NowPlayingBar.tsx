@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Play,
   Pause,
@@ -7,6 +6,9 @@ import {
   Volume2,
   VolumeX,
   Disc3,
+  Repeat,
+  Repeat1,
+  Shuffle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Equalizer } from "./Equalizer";
@@ -30,6 +32,10 @@ export function NowPlayingBar() {
     seek,
     setVolume,
     toggleMute,
+    repeatMode,
+    toggleRepeat,
+    isShuffled,
+    toggleShuffle,
   } = usePlayer();
 
   if (!currentTrack) {
@@ -70,7 +76,22 @@ export function NowPlayingBar() {
       <div className="flex-1 flex flex-col items-center gap-1 max-w-xl mx-auto">
         <div className="flex items-center gap-3">
           <button
+            onClick={toggleShuffle}
+            aria-label={isShuffled ? "Desativar embaralhamento" : "Ativar embaralhamento"}
+            aria-pressed={isShuffled}
+            className={cn(
+              "p-1.5 rounded-full transition-colors",
+              isShuffled
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Shuffle className="w-4 h-4" />
+          </button>
+
+          <button
             onClick={previous}
+            aria-label="Faixa anterior"
             className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
           >
             <SkipBack className="w-4 h-4" />
@@ -79,6 +100,7 @@ export function NowPlayingBar() {
           <button
             onClick={togglePlay}
             disabled={isLoading}
+            aria-label={isPlaying ? "Pausar" : "Reproduzir"}
             className={cn(
               "rounded-full p-2.5 transition-all duration-200",
               isPlaying
@@ -97,9 +119,34 @@ export function NowPlayingBar() {
 
           <button
             onClick={next}
+            aria-label="Próxima faixa"
             className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
           >
             <SkipForward className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={toggleRepeat}
+            aria-label={
+              repeatMode === "off"
+                ? "Ativar repetição de tudo"
+                : repeatMode === "all"
+                  ? "Ativar repetição de uma faixa"
+                  : "Desativar repetição"
+            }
+            aria-pressed={repeatMode !== "off"}
+            className={cn(
+              "p-1.5 rounded-full transition-colors",
+              repeatMode !== "off"
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {repeatMode === "one" ? (
+              <Repeat1 className="w-4 h-4" />
+            ) : (
+              <Repeat className="w-4 h-4" />
+            )}
           </button>
         </div>
 
@@ -126,6 +173,7 @@ export function NowPlayingBar() {
         <div className="flex items-center gap-1.5 group/vol">
           <button
             onClick={toggleMute}
+            aria-label={isMuted || volume === 0 ? "Reativar som" : "Silenciar"}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
           >
             {isMuted || volume === 0 ? (

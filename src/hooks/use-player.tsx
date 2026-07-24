@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useRef, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { jellyfinClient } from "@/lib/jellyfin";
+
+export type RepeatMode = "off" | "all" | "one";
 
 export interface TrackInfo {
   id: string;
@@ -37,7 +39,13 @@ interface PlayerContextType {
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
   setQueue: (tracks: TrackInfo[]) => void;
-  
+
+  // Repeat & Shuffle
+  repeatMode: RepeatMode;
+  toggleRepeat: () => void;
+  isShuffled: boolean;
+  toggleShuffle: () => void;
+
   // Equalizer & Audio FX
   eqEnabled: boolean;
   setEqEnabled: (enabled: boolean) => void;
@@ -84,6 +92,21 @@ export function trackFromJellyfinItem(item: any, imageUrl?: string): TrackInfo {
   };
 }
 
+// Fisher-Yates shuffle that keeps the track at `startIndex` pinned to position 0
+// so the user's explicit "play this" choice is preserved when shuffling.
+function shuffleTracks(tracks: TrackInfo[], startIndex: number = 0): TrackInfo[] {
+  if (tracks.length <= 1) return [...tracks];
+  const safeStart = Math.max(0, Math.min(startIndex, tracks.length - 1));
+  const first = tracks[safeStart];
+  const rest = tracks.filter((_, i) => i !== safeStart);
+  // Fisher-Yates on the remainder
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  return [first, ...rest];
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentTrack, setCurrentTrack] = useState<TrackInfo | null>(null);
@@ -99,6 +122,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const currentIndexRef = useRef(-1);
+
+  // Repeat & Shuffle State
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>(() => {
+    const saved = localStorage.getItem("player_repeat");
+    return (saved as RepeatMode) || "off";
+  });
+  const [isShuffled, setIsShuffled] = useState(() => {
+    return localStorage.getItem("player_shuffled") === "true";
+  });
+  // Original queue order preserved when shuffling so we can restore it
+  const originalQueueRef = useRef<TrackInfo[]>([]);
+  const repeatModeRef = useRef(repeatMode);
+  repeatModeRef.current = repeatMode;
 
   // Equalizer & Audio FX States
   const [eqEnabled, setEqEnabledState] = useState(() => {
@@ -309,11 +345,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const onWaiting = () => setIsLoading(true);
     const onCanPlay = () => setIsLoading(false);
     const onEnded = () => {
-      // Auto-next using refs to avoid stale closures
-      const nextIndex = currentIndexRef.current + 1;
+      // Auto-next using refs to avoid stale closures, honoring repeat/shuffle
+      const mode = repeatModeRef.current;
       const q = queueRef.current;
+      const cur = currentIndexRef.current;
+
+      if (mode === "one") {
+        // Replay the same track from the start
+        playTrackRef.current(cur, q);
+        return;
+      }
+
+      const nextIndex = cur + 1;
       if (nextIndex < q.length) {
         playTrackRef.current(nextIndex, q);
+      } else if (mode === "all" && q.length > 0) {
+        // Wrap around to the first track
+        playTrackRef.current(0, q);
       } else {
         setIsPlaying(false);
         setCurrentTime(0);
@@ -370,16 +418,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback((track: TrackInfo) => {
     const tracks = [track];
+    originalQueueRef.current = tracks;
     setQueueState(tracks);
     currentIndexRef.current = 0;
     playTrackFn(0, tracks);
   }, []);
 
   const playQueue = useCallback((tracks: TrackInfo[], startIndex: number = 0) => {
-    setQueueState(tracks);
-    currentIndexRef.current = startIndex;
-    playTrackFn(startIndex, tracks);
-  }, []);
+    // Snapshot the canonical order before any shuffle so toggleShuffle can restore it
+    originalQueueRef.current = tracks;
+    const effective = isShuffled ? shuffleTracks(tracks, startIndex) : tracks;
+    setQueueState(effective);
+    currentIndexRef.current = 0;
+    playTrackFn(0, effective);
+  }, [isShuffled]);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
@@ -419,24 +471,38 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const next = useCallback(() => {
-    const nextIndex = currentIndexRef.current + 1;
+    const cur = currentIndexRef.current;
+    const nextIndex = cur + 1;
     if (nextIndex < queue.length) {
       playTrackFn(nextIndex, queue);
+    } else if (repeatMode === "all" && queue.length > 0) {
+      // Wrap to first track
+      playTrackFn(0, queue);
     }
-  }, [queue]);
+  }, [queue, repeatMode]);
 
   const previous = useCallback(() => {
+    // If more than 3 seconds in, restart current track first (standard player UX)
+    const audio = audioRef.current;
+    if (audio && audio.currentTime > 3) {
+      audio.currentTime = 0;
+      setCurrentTime(0);
+      return;
+    }
     const prevIndex = currentIndexRef.current - 1;
     if (prevIndex >= 0) {
       playTrackFn(prevIndex, queue);
+    } else if (repeatMode === "all" && queue.length > 0) {
+      // Wrap to last track
+      playTrackFn(queue.length - 1, queue);
     } else {
       // Restart current
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
+      if (audio) {
+        audio.currentTime = 0;
         setCurrentTime(0);
       }
     }
-  }, [queue]);
+  }, [queue, repeatMode]);
 
   const addToQueue = useCallback((track: TrackInfo) => {
     setQueueState((prev) => [...prev, track]);
@@ -455,8 +521,59 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setQueue = useCallback((tracks: TrackInfo[]) => {
+    originalQueueRef.current = tracks;
     setQueueState(tracks);
   }, []);
+
+  // --- Repeat & Shuffle controls ---
+
+  // Persist repeat mode
+  useEffect(() => {
+    localStorage.setItem("player_repeat", repeatMode);
+  }, [repeatMode]);
+
+  // Persist shuffle flag
+  useEffect(() => {
+    localStorage.setItem("player_shuffled", String(isShuffled));
+  }, [isShuffled]);
+
+  const toggleRepeat = useCallback(() => {
+    setRepeatMode((m) => (m === "off" ? "all" : m === "all" ? "one" : "off"));
+  }, []);
+
+  const toggleShuffle = useCallback(() => {
+    setIsShuffled((prev) => {
+      const next = !prev;
+      if (next) {
+        // Shuffle: pin the current track at index 0, randomize the rest
+        const cur = currentIndexRef.current;
+        const curTrack = queue[cur] ?? null;
+        originalQueueRef.current = queue;
+        if (queue.length > 1 && cur >= 0) {
+          const rest = queue.filter((_, i) => i !== cur);
+          for (let i = rest.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [rest[i], rest[j]] = [rest[j], rest[i]];
+          }
+          const shuffled = curTrack ? [curTrack, ...rest] : rest;
+          setQueueState(shuffled);
+          currentIndexRef.current = 0;
+        }
+      } else {
+        // Unshuffle: restore the original order, keeping the current track playing
+        const original = originalQueueRef.current;
+        if (original.length > 0) {
+          const curTrack = queue[currentIndexRef.current];
+          const restoreIndex = curTrack
+            ? original.findIndex((t) => t.id === curTrack.id)
+            : 0;
+          setQueueState(original);
+          currentIndexRef.current = restoreIndex >= 0 ? restoreIndex : 0;
+        }
+      }
+      return next;
+    });
+  }, [queue]);
 
   // --- Equalizer & Audio FX Callbacks & Effects ---
   
@@ -680,6 +797,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         removeFromQueue,
         clearQueue,
         setQueue,
+        repeatMode,
+        toggleRepeat,
+        isShuffled,
+        toggleShuffle,
         eqEnabled,
         setEqEnabled,
         eqPreamp,
